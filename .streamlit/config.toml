@@ -1,0 +1,3 @@
+# Hide deploy button and dev toolbar
+[client]
+toolbarMode = "viewer"

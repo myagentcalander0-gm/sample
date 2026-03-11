@@ -1,0 +1,8 @@
+# Coding Rules
+
+- Always write Python code using type hints
+- Prefer async functions when possible
+- Follow PEP8 formatting
+- Avoid global variables
+- When modifying code, keep the existing architecture
+- Dont put everrything in one file, try to seperate it in an object oriented way into differnt compoenent file

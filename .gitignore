@@ -1,0 +1,29 @@
+# .vscode is not ignored — keep it so you can sync it
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE (optional; .vscode kept)
+.idea/
+*.swp
+*.swo
