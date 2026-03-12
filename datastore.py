@@ -11,10 +11,12 @@ KEY_UPLOADS = "uploads"
 KEY_SELECTED_ID = "selected_id"
 KEY_SCROLL_TO_PAGE = "scroll_to_page"
 KEY_SESSION_KEY = "session_key"
-KEY_CHAT_MESSAGES = "chat_messages"
+KEY_CHAT_MESSAGES = "chat_messages"  # legacy; use KEY_CONVERSATIONS per-PDF
+KEY_CONVERSATIONS = "conversations"  # dict[pdf_id, {"conversation_id": str, "messages": list[ChatMessage]}]
 KEY_CURRENT_UPLOAD = "current_upload"
 KEY_COLUMN_RATIO_LEFT = "column_ratio_left"
 KEY_COLUMN_RATIO_RIGHT = "column_ratio_right"
+KEY_UPLOADER_RESET = "uploader_reset"  # bumped after Process file to clear uploader (no x to remove)
 
 
 # -----------------------------------------------------------------------------
@@ -44,6 +46,11 @@ def default_uploads() -> list[dict[str, Any]]:
 
 def default_chat_messages() -> list[ChatMessage]:
     return []
+
+
+def default_conversations() -> dict[str, Any]:
+    """Per-PDF conversations: pdf_id -> {conversation_id, messages}."""
+    return {}
 
 
 def upload_entry(

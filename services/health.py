@@ -12,10 +12,20 @@ from config import get_health_url
 
 @dataclass
 class HealthResult:
-    """Result of a health check."""
+    """Result of a health check. Use dot_color and label for UI."""
     ok: bool
     latency_ms: float
     message: str = ""
+
+    @property
+    def dot_color(self) -> str:
+        """Green if healthy, red otherwise."""
+        return "#22c55e" if self.ok else "#ef4444"
+
+    @property
+    def label(self) -> str:
+        """Backend status label for display."""
+        return "Backend" if self.ok else "Backend (off)"
 
 
 def check_health(timeout_sec: float = 3.0) -> HealthResult:

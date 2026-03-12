@@ -1,12 +1,37 @@
-"""Interactive chat tab: query the PDF via backend API."""
+"""Interactive chat tab: per-PDF conversation storage and conversation_id for backend."""
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import streamlit as st
 
-from datastore import KEY_CHAT_MESSAGES, KEY_CURRENT_UPLOAD
+from datastore import KEY_CURRENT_UPLOAD, KEY_CONVERSATIONS, KEY_SCROLL_TO_PAGE
+from state import get_current_upload, get_or_create_conversation
 from services.chat_api import query_pdf
+
+# Match "page 1", "Page 2", "p. 3", "p 4" etc. for clickable page links
+PAGE_REF_PATTERN = re.compile(r"\b([Pp]age\s+|[Pp]\.?\s*)(\d+)\b")
+
+
+def _render_message_with_page_links(content: str, message_id: str) -> None:
+    """Render message content; page references become clickable links that jump the PDF viewer."""
+    # Split by "page N" / "Page N" / "p. N"; capturing group gives the digit, so parts alternate: text, num, text, num, ...
+    parts = PAGE_REF_PATTERN.split(content)
+    if len(parts) == 1:
+        st.markdown(content)
+        return
+    seg = 0
+    for i, part in enumerate(parts):
+        if part.isdigit():
+            page_num = int(part)
+            key = f"chat_goto_{message_id}_p{page_num}_{seg}"
+            if st.button(f"Page {page_num}", key=key, type="secondary"):
+                st.session_state[KEY_SCROLL_TO_PAGE] = page_num
+                st.rerun()
+            seg += 1
+        elif part:
+            st.markdown(part)
 
 
 def _get_context_from_current() -> str | None:
@@ -19,20 +44,25 @@ def _get_context_from_current() -> str | None:
 
 
 def render_chat_tab(current: dict[str, Any] | None) -> None:
-    """Render the chat tab; calls backend API for each user message."""
+    """Render the chat tab. Each PDF has its own conversation and conversation_id for the backend."""
     if current is None:
         st.info("Select a PDF in the Upload tab to chat about it.")
         return
 
-    # Persist current for API context (in case state is read in callback)
+    pdf_id = current.get("id") or ""
     st.session_state[KEY_CURRENT_UPLOAD] = current
 
-    # Chat message list
-    messages = st.session_state.get(KEY_CHAT_MESSAGES, [])
+    # Per-PDF conversation: one conversation_id and message list per PDF
+    conv = get_or_create_conversation(pdf_id)
+    conversation_id = conv["conversation_id"]
+    messages = conv["messages"]
 
-    for msg in messages:
+    for idx, msg in enumerate(messages):
         with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+            if msg["role"] == "assistant":
+                _render_message_with_page_links(msg["content"], f"{pdf_id}_{idx}")
+            else:
+                st.markdown(msg["content"])
 
     if prompt := st.chat_input("Ask something about the PDF..."):
         messages.append({"role": "user", "content": prompt})
@@ -46,9 +76,9 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
                     response = query_pdf(
                         query=prompt,
                         pdf_context=context,
-                        pdf_id=current.get("id"),
+                        pdf_id=pdf_id,
+                        conversation_id=conversation_id,
                     )
-                    # Backend may return {"answer": "..."}, {"response": "..."}, list, or raw
                     if isinstance(response, dict):
                         answer = (
                             response.get("answer")
@@ -60,11 +90,11 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
                         answer = "\n".join(str(x) for x in response)
                     else:
                         answer = str(response)
-                    st.markdown(answer)
+                    _render_message_with_page_links(answer, f"{pdf_id}_new")
                     messages.append({"role": "assistant", "content": answer})
                 except Exception as e:
                     st.error(f"API error: {e}")
                     messages.append({"role": "assistant", "content": f"Error: {e}"})
 
-        st.session_state[KEY_CHAT_MESSAGES] = messages
+        conv["messages"] = messages
         st.rerun()
