@@ -33,7 +33,6 @@ if st.session_state.pop(KEY_GO_TO_NOTES_TAB, None):
 
 # Top bar only (session + backend + Refresh)
 render_top_bar()
-st.divider()
 
 # Whole area below top bar is resizable: drag the handle between left and right
 st.markdown("""
@@ -51,13 +50,9 @@ st.markdown("""
     z-index:1000;
 }
 [data-testid="stMainBlockContainer"] {
-    padding: 60px 50px;
+    padding: 45px 50px;
 }
-/* First element container in main area: collapse to zero height */
-div[data-testid="stVerticalBlock"] > div > div[data-testid="stElementContainer"]:first-child,
-[data-testid="stMainBlockContainer"] div[data-testid="stElementContainer"]:first-child {
-    height: 0 !important;
-}
+
 </style>
 """, unsafe_allow_html=True)
 
