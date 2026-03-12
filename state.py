@@ -10,6 +10,7 @@ from config import PDF_QUERY_API_URL
 from datastore import (
     KEY_BACKEND_BASE_URL,
     KEY_CONVERSATIONS,
+    KEY_CONVERTED_IMAGES,
     KEY_FROM_PAGE,
     KEY_LEFT_TAB,
     KEY_PROMPT_EDITOR,
@@ -40,7 +41,7 @@ def ensure_session_state() -> None:
     if KEY_UPLOADER_RESET not in st.session_state:
         st.session_state[KEY_UPLOADER_RESET] = 0
     if KEY_TEXT_OUTPUT_ONLY not in st.session_state:
-        st.session_state[KEY_TEXT_OUTPUT_ONLY] = False
+        st.session_state[KEY_TEXT_OUTPUT_ONLY] = True
     if KEY_BACKEND_BASE_URL not in st.session_state:
         st.session_state[KEY_BACKEND_BASE_URL] = PDF_QUERY_API_URL
     if KEY_PROMPT_EDITOR not in st.session_state:
@@ -51,6 +52,8 @@ def ensure_session_state() -> None:
         st.session_state[KEY_TO_PAGE] = 20
     if KEY_LEFT_TAB not in st.session_state:
         st.session_state[KEY_LEFT_TAB] = 0
+    if KEY_CONVERTED_IMAGES not in st.session_state:
+        st.session_state[KEY_CONVERTED_IMAGES] = {}
 
 
 def get_backend_base_url() -> str:

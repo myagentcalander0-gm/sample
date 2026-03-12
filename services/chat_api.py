@@ -43,10 +43,10 @@ def pdf_detail_from_external(
     to_page: int = 20,
     base_url: str | None = None,
     timeout_sec: float = 30.0,
-) -> dict[str, Any] | list[Any]:
+) -> dict[str, Any] | list[Any] | bytes:
     """
     Called when user clicks Process file: send system_prompt, external_loc, conversation_id,
-    text_output_only, from_page, to_page.
+    text_output_only, from_page, to_page. Returns JSON or raw bytes if server returns non-JSON (e.g. image).
     """
     url = get_pdf_detail_from_external_url(base_url)
     payload: dict[str, Any] = {
@@ -60,7 +60,10 @@ def pdf_detail_from_external(
         payload["conversation_id"] = conversation_id
     r = requests.post(url, json=payload, timeout=timeout_sec)
     r.raise_for_status()
-    return r.json()
+    content_type = (r.headers.get("Content-Type") or "").lower()
+    if "application/json" in content_type:
+        return r.json()
+    return r.content
 
 
 def query_pdf_conversation(

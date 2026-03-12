@@ -24,6 +24,7 @@ KEY_FROM_PAGE = "from_page"  # page range start (default 0)
 KEY_TO_PAGE = "to_page"  # page range end (default 20)
 KEY_LEFT_TAB = "left_tab"  # 0 = Upload, 1 = Chat
 KEY_GO_TO_CHAT = "go_to_chat"  # set True when Process file clicked; applied before radio so we can switch tab
+KEY_CONVERTED_IMAGES = "converted_images"  # dict[pdf_id, list[bytes]]: per-page image bytes for Converted tab
 
 
 # -----------------------------------------------------------------------------

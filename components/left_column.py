@@ -1,11 +1,14 @@
 """Left column: PDF upload (process file) and Chat."""
 from __future__ import annotations
 
+import base64
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import streamlit as st
 
 from datastore import (
+    KEY_CONVERTED_IMAGES,
     KEY_FROM_PAGE,
     KEY_GO_TO_CHAT,
     KEY_LEFT_TAB,
@@ -21,6 +24,41 @@ from pdf_utils import add_upload
 from components.chat_tab import render_chat_tab
 from services.chat_api import pdf_detail_from_external
 from services.langfuse_prompt import get_prompt_from_langfuse
+
+
+def _parse_image_response(response: object, pdf_id: str) -> list[bytes]:
+    """Parse backend response into list of image bytes per page. Returns [] on parse failure."""
+    images: list[bytes] = []
+    try:
+        if isinstance(response, bytes):
+            if response:
+                images.append(response)
+            return images
+        if isinstance(response, dict):
+            # "images": [base64, ...] or "image": base64
+            raw = response.get("images") or (response.get("image") and [response["image"]])
+            if not raw:
+                return []
+            for item in raw:
+                if isinstance(item, bytes):
+                    images.append(item)
+                elif isinstance(item, str):
+                    images.append(base64.b64decode(item))
+                else:
+                    images.append(base64.b64decode(str(item)))
+            return images
+        if isinstance(response, list):
+            for item in response:
+                if isinstance(item, bytes):
+                    images.append(item)
+                elif isinstance(item, str):
+                    images.append(base64.b64decode(item))
+                else:
+                    images.append(base64.b64decode(str(item)))
+            return images
+    except Exception:
+        pass
+    return []
 
 
 def _load_default_prompt_from_file() -> str:
@@ -103,13 +141,14 @@ def render_left_column() -> None:
                             pdf_id,
                             initial_messages=[{"role": "user", "content": prompt_prefix}],
                         )
-                        # 2. Send first prompt to backend POST /pdf_detail_from_external
-                        text_output_only = st.session_state.get(KEY_TEXT_OUTPUT_ONLY, False)
+                        # 2. Backend requests: one (text) or two in parallel (text + images when Text Output Only off)
+                        text_output_only = st.session_state.get(KEY_TEXT_OUTPUT_ONLY, True)
                         from_page = st.session_state.get(KEY_FROM_PAGE, 0)
                         to_page = st.session_state.get(KEY_TO_PAGE, 20)
                         base_url = get_backend_base_url()
-                        try:
-                            pdf_detail_from_external(
+
+                        def request_text() -> object:
+                            return pdf_detail_from_external(
                                 system_prompt=prompt_prefix or "",
                                 external_loc=uploaded_file.name,
                                 from_page=from_page,
@@ -118,6 +157,52 @@ def render_left_column() -> None:
                                 text_output_only=text_output_only,
                                 base_url=base_url,
                             )
+
+                        def request_images() -> object:
+                            return pdf_detail_from_external(
+                                system_prompt="",
+                                external_loc=uploaded_file.name,
+                                conversation_id=None,
+                                text_output_only=False,
+                                from_page=from_page,
+                                to_page=to_page,
+                                base_url=base_url,
+                            )
+
+                        img_response: object = None
+                        try:
+                            if text_output_only:
+                                response = request_text()
+                            else:
+                                with ThreadPoolExecutor(max_workers=2) as executor:
+                                    fut_text = executor.submit(request_text)
+                                    fut_images = executor.submit(request_images)
+                                    response = fut_text.result()
+                                    img_response = fut_images.result()
+                            # Store backend's first message in conversation
+                            if isinstance(response, dict):
+                                answer = (
+                                    response.get("answer")
+                                    or response.get("response")
+                                    or response.get("text")
+                                    or (str(response) if response else None)
+                                )
+                            elif isinstance(response, list):
+                                answer = "\n".join(str(x) for x in response) if response else None
+                            else:
+                                answer = str(response) if response else None
+                            if answer:
+                                conv["messages"].append({"role": "assistant", "content": answer})
+                            # Store images when we ran the images request (unchecked Text Output Only)
+                            if not text_output_only and img_response is not None:
+                                try:
+                                    all_images = _parse_image_response(img_response, pdf_id)
+                                    if all_images:
+                                        if KEY_CONVERTED_IMAGES not in st.session_state:
+                                            st.session_state[KEY_CONVERTED_IMAGES] = {}
+                                        st.session_state[KEY_CONVERTED_IMAGES][pdf_id] = all_images
+                                except Exception:
+                                    pass
                         except Exception:
                             pass  # don't block Process file if backend fails
                         st.session_state[KEY_UPLOADER_RESET] += 1  # clear uploader so x is gone
@@ -126,7 +211,7 @@ def render_left_column() -> None:
                 with col_toggle:
                     st.checkbox(
                         "Text Output Only",
-                        value=st.session_state.get(KEY_TEXT_OUTPUT_ONLY, False),
+                        value=st.session_state.get(KEY_TEXT_OUTPUT_ONLY, True),
                         key=KEY_TEXT_OUTPUT_ONLY,
                     )
         else:
