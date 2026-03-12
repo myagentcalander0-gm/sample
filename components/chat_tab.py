@@ -6,9 +6,17 @@ from typing import Any
 
 import streamlit as st
 
-from datastore import KEY_CURRENT_UPLOAD, KEY_CONVERSATIONS, KEY_SCROLL_TO_PAGE
-from state import get_current_upload, get_or_create_conversation
-from services.chat_api import query_pdf
+from datastore import (
+    KEY_CURRENT_UPLOAD,
+    KEY_CONVERSATIONS,
+    KEY_FROM_PAGE,
+    KEY_PROMPT_EDITOR,
+    KEY_SCROLL_TO_PAGE,
+    KEY_TEXT_OUTPUT_ONLY,
+    KEY_TO_PAGE,
+)
+from state import get_current_upload, get_or_create_conversation, get_backend_base_url
+from services.chat_api import query_pdf_conversation
 
 # Match "page 1", "Page 2", "p. 3", "p 4" etc. for clickable page links
 PAGE_REF_PATTERN = re.compile(r"\b([Pp]age\s+|[Pp]\.?\s*)(\d+)\b")
@@ -78,20 +86,59 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
             else:
                 st.markdown(msg["content"])
 
+    # Page selection: options from max(1, from_page) to min(num_pages, to_page) after process
+    num_pages = current.get("num_pages") or 0
+    pdf_start = max(1, st.session_state.get(KEY_FROM_PAGE, 1))
+    pdf_end = min(num_pages, st.session_state.get(KEY_TO_PAGE, 20)) if num_pages else 0
+    page_options = list(range(pdf_start, pdf_end + 1)) if pdf_end >= pdf_start else []
+    page_selection_key = f"page_selection_{pdf_id}"
+    if page_options and page_selection_key not in st.session_state:
+        st.session_state[page_selection_key] = page_options.copy()
+    if page_options:
+        st.multiselect(
+            "Pages",
+            options=page_options,
+            key=page_selection_key,
+            format_func=lambda x: f"Page {x}",
+        )
+
     if prompt := st.chat_input("Ask something about the PDF..."):
-        messages.append({"role": "user", "content": prompt})
+        prompt_prefix = (st.session_state.get(KEY_PROMPT_EDITOR) or "").strip()
+        user_content = f"{prompt_prefix}\n\n{prompt}" if prompt_prefix else prompt
+        messages.append({"role": "user", "content": user_content})
         with st.chat_message("user"):
-            st.markdown(prompt)
+            st.markdown(user_content)
 
         with st.chat_message("assistant"):
             with st.spinner("Querying..."):
                 try:
-                    context = _get_context_from_current()
-                    response = query_pdf(
-                        query=prompt,
-                        pdf_context=context,
-                        pdf_id=pdf_id,
+                    base_url = get_backend_base_url()
+                    # Only send from_page / to_page on first message; derive from page selection (min/max window)
+                    is_first = len(messages) == 1
+                    if is_first and page_options:
+                        selected_pages = st.session_state.get(page_selection_key, [])
+                        if selected_pages:
+                            from_page = max(min(selected_pages), pdf_start)
+                            to_page = min(max(selected_pages), pdf_end)
+                        else:
+                            from_page = pdf_start
+                            to_page = pdf_end
+                    elif is_first and pdf_end >= pdf_start:
+                        from_page = pdf_start
+                        to_page = pdf_end
+                    else:
+                        from_page = None
+                        to_page = None
+                    last_msg = messages[-1]
+                    conversations_payload = [
+                        {"is_user": last_msg["role"] == "user", "context": last_msg["content"]}
+                    ]
+                    response = query_pdf_conversation(
                         conversation_id=conversation_id,
+                        conversations=conversations_payload,
+                        from_page=from_page,
+                        to_page=to_page,
+                        base_url=base_url,
                     )
                     if isinstance(response, dict):
                         answer = (
@@ -104,7 +151,6 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
                         answer = "\n".join(str(x) for x in response)
                     else:
                         answer = str(response)
-           
                     _render_message_with_page_links(answer, f"{pdf_id}_new")
                     messages.append({"role": "assistant", "content": answer})
                 except Exception as e:

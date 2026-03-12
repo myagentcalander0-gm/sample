@@ -12,17 +12,30 @@ PDF_QUERY_API_URL: str = os.getenv("PDF_QUERY_API_URL", "http://localhost:8000")
 HEALTH_PATH: str = os.getenv("HEALTH_PATH", "/health")
 CHAT_PATH: str = os.getenv("CHAT_PATH", "/query")
 
+# Langfuse: prompt source (pk, sk, url). If set, Prompt editor pulls from Langfuse when empty.
+LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "")
+LANGFUSE_URL: str = os.getenv("LANGFUSE_URL", "https://cloud.langfuse.com")
+LANGFUSE_PROMPT_NAME: str = os.getenv("LANGFUSE_PROMPT_NAME", "pdf-chat-prompt")
 
-def get_health_url() -> str:
-    base = PDF_QUERY_API_URL.rstrip("/")
+
+def get_health_url(base_url: str | None = None) -> str:
+    base = (base_url or PDF_QUERY_API_URL).rstrip("/")
     path = HEALTH_PATH if HEALTH_PATH.startswith("/") else f"/{HEALTH_PATH}"
     return f"{base}{path}"
 
 
-def get_chat_api_url() -> str:
-    base = PDF_QUERY_API_URL.rstrip("/")
+def get_chat_api_url(base_url: str | None = None) -> str:
+    base = (base_url or PDF_QUERY_API_URL).rstrip("/")
     path = CHAT_PATH if CHAT_PATH.startswith("/") else f"/{CHAT_PATH}"
     return f"{base}{path}"
+
+
+def get_pdf_detail_from_external_url(base_url: str | None = None) -> str:
+    """URL for first-message endpoint: pdf_detail_from_external."""
+    base = (base_url or PDF_QUERY_API_URL).rstrip("/")
+    path = "pdf_detail_from_external"
+    return f"{base}/{path}" if not path.startswith("/") else f"{base}{path}"
 
 
 def is_dev() -> bool:
@@ -30,10 +43,11 @@ def is_dev() -> bool:
     return DEPLOYMENT_ENV.strip().lower() == "dev"
 
 
-def get_backend_display() -> str:
+def get_backend_display(base_url: str | None = None) -> str:
     """Return host:port for display when backend is off (e.g. 'localhost:8000')."""
     from urllib.parse import urlparse
-    parsed = urlparse(PDF_QUERY_API_URL)
+    url = base_url or PDF_QUERY_API_URL
+    parsed = urlparse(url)
     host = parsed.hostname or "localhost"
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     return f"{host}:{port}"
