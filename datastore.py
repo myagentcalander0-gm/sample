@@ -24,7 +24,11 @@ KEY_FROM_PAGE = "from_page"  # page range start (default 0)
 KEY_TO_PAGE = "to_page"  # page range end (default 20)
 KEY_LEFT_TAB = "left_tab"  # 0 = Upload, 1 = Chat
 KEY_GO_TO_CHAT = "go_to_chat"  # set True when Process file clicked; applied before radio so we can switch tab
+KEY_GO_TO_NOTES_TAB = "go_to_notes_tab"  # set True when Insert clicked in chat; switch main panel to Notes tab
+KEY_ACTIVE_MAIN_TAB = "active_main_tab"  # 0=Preview, 1=Analyzed PDF, 2=Notes; used so Insert can open Notes
 KEY_CONVERTED_IMAGES = "converted_images"  # dict[pdf_id, list[bytes]]: per-page image bytes for Converted tab
+KEY_TEMPLATE_ROWS = "template_rows"  # dict[pdf_id, list[str]]: per-PDF rows from Insert
+# Template text per PDF is in st.session_state[f"template_text_{pdf_id}"] (widget key)
 
 
 # -----------------------------------------------------------------------------

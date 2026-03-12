@@ -10,19 +10,67 @@ from datastore import (
     KEY_CURRENT_UPLOAD,
     KEY_CONVERSATIONS,
     KEY_FROM_PAGE,
+    KEY_GO_TO_NOTES_TAB,
     KEY_PROMPT_EDITOR,
     KEY_SCROLL_TO_PAGE,
+    KEY_TEMPLATE_ROWS,
     KEY_TEXT_OUTPUT_ONLY,
     KEY_TO_PAGE,
 )
 from state import get_current_upload, get_or_create_conversation, get_backend_base_url
 from services.chat_api import query_pdf_conversation
+from components.template_tab import _template_text_key
 
 # Match "page 1", "Page 2", "p. 3", "p 4" etc. for clickable page links
 PAGE_REF_PATTERN = re.compile(r"\b([Pp]age\s+|[Pp]\.?\s*)(\d+)\b")
 
 
 PAGE_BUTTONS_PER_ROW = 4
+
+# CSS: hover over assistant message reveals Insert button (first column); 20x10px, light grey, slight black text
+_CHAT_INSERT_CSS = """
+<style>
+[data-testid="stChatMessage"] { position: relative; }
+[data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] > div:first-child { opacity: 0; transition: opacity 0.15s; position: absolute !important; top: 4px; right: 4px; z-index: 2; }
+[data-testid="stChatMessage"]:hover [data-testid="stHorizontalBlock"] > div:first-child { opacity: 1; }
+[data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] > div:first-child button {
+  width: 55px !important;
+  position: absolute !important;
+  top: 10px !important;
+  left: -10px !important;
+  min-width: 20px !important;
+  height: 30px !important;
+  min-height: 20px !important;
+  padding: 0 !important;
+  font-size: 6px !important;
+  line-height: 1 !important;
+  background-color: #d3d3d3 !important;
+  color: rgba(0, 0, 0, 0.75) !important;
+  border: 1px solid #bbb !important;
+  border-radius: 3px !important;
+}
+</style>
+"""
+
+
+def _render_assistant_message_with_insert(content: str, message_id: str, pdf_id: str) -> None:
+    """Render assistant message with hover-reveal Insert button (adds response as new row in this PDF's notes)."""
+    st.markdown(_CHAT_INSERT_CSS, unsafe_allow_html=True)
+    col_btn, col_msg = st.columns([0.08, 0.92])
+    with col_btn:
+        insert_key = f"insert_tpl_{message_id}"
+        if st.button("Insert", key=insert_key, type="secondary"):
+            rows_by_pdf = st.session_state.get(KEY_TEMPLATE_ROWS, {})
+            rows = list(rows_by_pdf.get(pdf_id, []))
+            rows.append(content)
+            if KEY_TEMPLATE_ROWS not in st.session_state:
+                st.session_state[KEY_TEMPLATE_ROWS] = {}
+            st.session_state[KEY_TEMPLATE_ROWS][pdf_id] = rows
+            st.session_state[_template_text_key(pdf_id)] = "\n\n".join(rows)
+            st.session_state[KEY_GO_TO_NOTES_TAB] = True  # switch main panel to Notes tab
+            st.rerun()
+    with col_msg:
+        _render_message_with_page_links(content, message_id)
 
 
 def _render_message_with_page_links(content: str, message_id: str) -> None:
@@ -51,7 +99,7 @@ def _render_message_with_page_links(content: str, message_id: str) -> None:
         for j, page_num in enumerate(row):
             with cols[j]:
                 key = f"chat_goto_{message_id}_p{page_num}_r{row_start}"
-                if st.button(f"#page_{page_num}", key=key, type="secondary"):
+                if st.button(f"#page_{page_num}", key=key, type="tertiary"):
                     st.session_state[KEY_SCROLL_TO_PAGE] = page_num
                     st.rerun()
 
@@ -82,7 +130,7 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
     for idx, msg in enumerate(messages):
         with st.chat_message(msg["role"]):
             if msg["role"] == "assistant":
-                _render_message_with_page_links(msg["content"], f"{pdf_id}_{idx}")
+                _render_assistant_message_with_insert(msg["content"], f"{pdf_id}_{idx}", pdf_id)
             else:
                 st.markdown(msg["content"])
 
@@ -151,7 +199,7 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
                         answer = "\n".join(str(x) for x in response)
                     else:
                         answer = str(response)
-                    _render_message_with_page_links(answer, f"{pdf_id}_new")
+                    _render_assistant_message_with_insert(answer, f"{pdf_id}_new", pdf_id)
                     messages.append({"role": "assistant", "content": answer})
                 except Exception as e:
                     st.error(f"API error: {e}")

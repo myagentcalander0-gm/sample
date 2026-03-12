@@ -100,6 +100,10 @@ def render_left_column() -> None:
             horizontal=True,
             label_visibility="collapsed",
         )
+        # Case ID: per-PDF, used as download filename for notes
+        if st.session_state.get(KEY_UPLOADS) and st.session_state.get(KEY_SELECTED_ID):
+            _pdf_id = st.session_state[KEY_SELECTED_ID]
+            st.text_input("Case ID", key=f"case_id_{_pdf_id}", placeholder="e.g. CASE-001", label_visibility="visible")
         if tab_index == 0:
             # Prompt section: default from prompts/default.md, then Langfuse when empty
             if KEY_PROMPT_EDITOR not in st.session_state:

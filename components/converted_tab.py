@@ -14,7 +14,7 @@ def render_converted_tab(current: dict[str, Any]) -> None:
         f"## Page {i + 1}\n\n{t}" for i, t in enumerate(current["text_by_page"])
     )
     st.download_button(
-        "Download converted text",
+        "Download converted PDF",
         data=full_text,
         file_name=current["name"].rsplit(".", 1)[0] + "_converted.txt",
         mime="text/plain",

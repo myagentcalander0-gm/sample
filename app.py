@@ -5,9 +5,9 @@ import streamlit as st
 from streamlit_adjustable_columns import adjustable_columns
 
 from config import SIDEBAR_MAX_WIDTH
-from datastore import KEY_SCROLL_TO_PAGE
+from datastore import KEY_ACTIVE_MAIN_TAB, KEY_GO_TO_NOTES_TAB, KEY_SCROLL_TO_PAGE
 from state import ensure_session_state, get_current_upload, clear_scroll_target
-from components import render_top_bar, render_left_column, render_preview_tab, render_converted_tab
+from components import render_top_bar, render_left_column, render_preview_tab, render_converted_tab, render_template_tab
 
 st.set_page_config(
     page_title="PDF Host & Preview",
@@ -26,6 +26,10 @@ if SIDEBAR_MAX_WIDTH:
     )
 
 ensure_session_state()
+
+# When Insert clicked in chat, switch main panel to Notes tab
+if st.session_state.pop(KEY_GO_TO_NOTES_TAB, None):
+    st.session_state[KEY_ACTIVE_MAIN_TAB] = 2
 
 # Top bar only (session + backend + Refresh)
 render_top_bar()
@@ -61,14 +65,29 @@ render_left_column()
 current = get_current_upload()
 if current is None:
     st.markdown("### Preview")
-    st.info("Upload a PDF in the left column to get started. Your data stays in this session only.")
 else:
     st.markdown(f"### 📄 {current['name']}")
 
-    tab_preview, tab_converted = st.tabs(["Preview PDF", "Converted (text)"])
-    with tab_preview:
+tab_index = st.radio(
+    "Panel",
+    options=[0, 1, 2],
+    format_func=lambda i: ["Preview PDF", "Analyzed PDF", "Notes"][i],
+    key=KEY_ACTIVE_MAIN_TAB,
+    horizontal=True,
+    label_visibility="collapsed",
+)
+if tab_index == 0:
+    if current is None:
+        st.info("Upload a PDF in the left column to get started. Your data stays in this session only.")
+    else:
         render_preview_tab(current)
-    with tab_converted:
+elif tab_index == 1:
+    if current is None:
+        st.info("Select a PDF to see converted text here.")
+    else:
         render_converted_tab(current)
+else:
+    render_template_tab(current)
 
+if current is not None:
     clear_scroll_target()

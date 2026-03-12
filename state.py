@@ -8,15 +8,18 @@ import streamlit as st
 
 from config import PDF_QUERY_API_URL
 from datastore import (
+    KEY_ACTIVE_MAIN_TAB,
     KEY_BACKEND_BASE_URL,
     KEY_CONVERSATIONS,
     KEY_CONVERTED_IMAGES,
     KEY_FROM_PAGE,
+    KEY_GO_TO_NOTES_TAB,
     KEY_LEFT_TAB,
     KEY_PROMPT_EDITOR,
     KEY_SCROLL_TO_PAGE,
     KEY_SELECTED_ID,
     KEY_SESSION_KEY,
+    KEY_TEMPLATE_ROWS,
     KEY_TEXT_OUTPUT_ONLY,
     KEY_TO_PAGE,
     KEY_UPLOADS,
@@ -54,6 +57,10 @@ def ensure_session_state() -> None:
         st.session_state[KEY_LEFT_TAB] = 0
     if KEY_CONVERTED_IMAGES not in st.session_state:
         st.session_state[KEY_CONVERTED_IMAGES] = {}
+    if KEY_TEMPLATE_ROWS not in st.session_state:
+        st.session_state[KEY_TEMPLATE_ROWS] = {}
+    if KEY_ACTIVE_MAIN_TAB not in st.session_state:
+        st.session_state[KEY_ACTIVE_MAIN_TAB] = 0
 
 
 def get_backend_base_url() -> str:

@@ -31,6 +31,16 @@ def get_chat_api_url(base_url: str | None = None) -> str:
     return f"{base}{path}"
 
 
+NOTES_TO_PDF_PATH: str = os.getenv("NOTES_TO_PDF_PATH", "notes_to_pdf")
+
+
+def get_notes_to_pdf_url(base_url: str | None = None) -> str:
+    """URL for POST notes text -> PDF (backend returns PDF bytes)."""
+    base = (base_url or PDF_QUERY_API_URL).rstrip("/")
+    path = NOTES_TO_PDF_PATH if NOTES_TO_PDF_PATH.startswith("/") else f"/{NOTES_TO_PDF_PATH}"
+    return f"{base}{path}"
+
+
 def get_pdf_detail_from_external_url(base_url: str | None = None) -> str:
     """URL for first-message endpoint: pdf_detail_from_external."""
     base = (base_url or PDF_QUERY_API_URL).rstrip("/")
