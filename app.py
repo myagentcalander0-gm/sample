@@ -52,6 +52,14 @@ st.markdown("""
 [data-testid="stMainBlockContainer"] {
     padding: 45px 50px;
 }
+/* User chat message: show icon on the right */
+[data-testid="stChatMessage"] {
+    display: flex !important;
+}
+[data-testid="stChatMessage"][aria-label="User"],
+[data-testid="stChatMessage"][aria-label="user"] {
+    flex-direction: row-reverse !important;
+}
 
 </style>
 """, unsafe_allow_html=True)

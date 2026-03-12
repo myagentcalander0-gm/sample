@@ -16,6 +16,7 @@ from datastore import (
     KEY_TEMPLATE_ROWS,
     KEY_TEXT_OUTPUT_ONLY,
     KEY_TO_PAGE,
+    LOADING_PLACEHOLDER,
 )
 from state import get_current_upload, get_or_create_conversation, get_backend_base_url
 from services.chat_api import query_pdf_conversation
@@ -127,6 +128,56 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
     conversation_id = conv["conversation_id"]
     messages = conv["messages"]
 
+    num_pages = current.get("num_pages") or 0
+    pdf_start = max(1, st.session_state.get(KEY_FROM_PAGE, 1))
+    pdf_end = min(num_pages, st.session_state.get(KEY_TO_PAGE, 20)) if num_pages else 0
+    page_options = list(range(pdf_start, pdf_end + 1)) if pdf_end >= pdf_start else []
+    page_selection_key = f"page_selection_{pdf_id}"
+
+    # If last message is "Loading..." (chat), run the API and replace with response
+    if messages and messages[-1].get("role") == "assistant" and messages[-1].get("content") == LOADING_PLACEHOLDER:
+        base_url = get_backend_base_url()
+        is_first = len(messages) == 2  # user + loading
+        if is_first and page_options:
+            selected_pages = st.session_state.get(page_selection_key, [])
+            if selected_pages:
+                from_page = max(min(selected_pages), pdf_start)
+                to_page = min(max(selected_pages), pdf_end)
+            else:
+                from_page = pdf_start
+                to_page = pdf_end
+        elif is_first and pdf_end >= pdf_start:
+            from_page = pdf_start
+            to_page = pdf_end
+        else:
+            from_page = None
+            to_page = None
+        last_user = messages[-2] if len(messages) >= 2 else messages[0]
+        conversations_payload = [{"is_user": last_user["role"] == "user", "context": last_user["content"]}]
+        try:
+            response = query_pdf_conversation(
+                conversation_id=conversation_id,
+                conversations=conversations_payload,
+                from_page=from_page,
+                to_page=to_page,
+                base_url=base_url,
+            )
+            if isinstance(response, dict):
+                answer = (
+                    response.get("answer")
+                    or response.get("response")
+                    or response.get("text")
+                    or str(response)
+                )
+            elif isinstance(response, list):
+                answer = "\n".join(str(x) for x in response)
+            else:
+                answer = str(response)
+            messages[-1]["content"] = answer
+        except Exception as e:
+            messages[-1]["content"] = f"Error: {e}"
+        st.rerun()
+
     for idx, msg in enumerate(messages):
         with st.chat_message(msg["role"]):
             if msg["role"] == "assistant":
@@ -134,12 +185,7 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
             else:
                 st.markdown(msg["content"])
 
-    # Page selection: options from max(1, from_page) to min(num_pages, to_page) after process
-    num_pages = current.get("num_pages") or 0
-    pdf_start = max(1, st.session_state.get(KEY_FROM_PAGE, 1))
-    pdf_end = min(num_pages, st.session_state.get(KEY_TO_PAGE, 20)) if num_pages else 0
-    page_options = list(range(pdf_start, pdf_end + 1)) if pdf_end >= pdf_start else []
-    page_selection_key = f"page_selection_{pdf_id}"
+    # Page selection
     if page_options and page_selection_key not in st.session_state:
         st.session_state[page_selection_key] = page_options.copy()
     if page_options:
@@ -154,56 +200,6 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
         prompt_prefix = (st.session_state.get(KEY_PROMPT_EDITOR) or "").strip()
         user_content = f"{prompt_prefix}\n\n{prompt}" if prompt_prefix else prompt
         messages.append({"role": "user", "content": user_content})
-        with st.chat_message("user"):
-            st.markdown(user_content)
-
-        with st.chat_message("assistant"):
-            with st.spinner("Querying..."):
-                try:
-                    base_url = get_backend_base_url()
-                    # Only send from_page / to_page on first message; derive from page selection (min/max window)
-                    is_first = len(messages) == 1
-                    if is_first and page_options:
-                        selected_pages = st.session_state.get(page_selection_key, [])
-                        if selected_pages:
-                            from_page = max(min(selected_pages), pdf_start)
-                            to_page = min(max(selected_pages), pdf_end)
-                        else:
-                            from_page = pdf_start
-                            to_page = pdf_end
-                    elif is_first and pdf_end >= pdf_start:
-                        from_page = pdf_start
-                        to_page = pdf_end
-                    else:
-                        from_page = None
-                        to_page = None
-                    last_msg = messages[-1]
-                    conversations_payload = [
-                        {"is_user": last_msg["role"] == "user", "context": last_msg["content"]}
-                    ]
-                    response = query_pdf_conversation(
-                        conversation_id=conversation_id,
-                        conversations=conversations_payload,
-                        from_page=from_page,
-                        to_page=to_page,
-                        base_url=base_url,
-                    )
-                    if isinstance(response, dict):
-                        answer = (
-                            response.get("answer")
-                            or response.get("response")
-                            or response.get("text")
-                            or str(response)
-                        )
-                    elif isinstance(response, list):
-                        answer = "\n".join(str(x) for x in response)
-                    else:
-                        answer = str(response)
-                    _render_assistant_message_with_insert(answer, f"{pdf_id}_new", pdf_id)
-                    messages.append({"role": "assistant", "content": answer})
-                except Exception as e:
-                    st.error(f"API error: {e}")
-                    messages.append({"role": "assistant", "content": f"Error: {e}"})
-
+        messages.append({"role": "assistant", "content": LOADING_PLACEHOLDER})
         conv["messages"] = messages
         st.rerun()

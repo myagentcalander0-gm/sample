@@ -12,12 +12,14 @@ from datastore import (
     KEY_FROM_PAGE,
     KEY_GO_TO_CHAT,
     KEY_LEFT_TAB,
+    KEY_PENDING_PROCESS,
     KEY_PROMPT_EDITOR,
     KEY_SELECTED_ID,
     KEY_TEXT_OUTPUT_ONLY,
     KEY_TO_PAGE,
     KEY_UPLOADS,
     KEY_UPLOADER_RESET,
+    LOADING_PLACEHOLDER,
 )
 from state import get_current_upload, get_or_create_conversation, get_backend_base_url, get_streamlit_app_url
 from pdf_utils import add_upload
@@ -138,7 +140,7 @@ def render_left_column() -> None:
                 col_btn, col_toggle = st.columns([1, 1])
                 with col_btn:
                     if st.button("Process file", key="btn_process_file"):
-                        # 1. Load the PDF: add to session and extract text by page (pypdf)
+                        # 1. Load the PDF and add user + assistant "Loading..." then switch to Chat; API runs on next run
                         add_upload(st.session_state, uploaded_file.name, uploaded_file.getvalue())
                         pdf_id = st.session_state[KEY_SELECTED_ID]
                         prompt_prefix = (st.session_state.get(KEY_PROMPT_EDITOR) or "").strip()
@@ -146,72 +148,9 @@ def render_left_column() -> None:
                             pdf_id,
                             initial_messages=[{"role": "user", "content": prompt_prefix}],
                         )
-                        # 2. Backend requests: one (text) or two in parallel (text + images when Text Output Only off)
-                        text_output_only = st.session_state.get(KEY_TEXT_OUTPUT_ONLY, True)
-                        from_page = st.session_state.get(KEY_FROM_PAGE, 0)
-                        to_page = st.session_state.get(KEY_TO_PAGE, 20)
-                        base_url = get_backend_base_url()
-
-                        external_loc = get_streamlit_app_url()  # full URL of current Streamlit host
-                        def request_text() -> object:
-                            return pdf_detail_from_external(
-                                system_prompt=prompt_prefix or "",
-                                external_loc=external_loc,
-                                from_page=from_page,
-                                to_page=to_page,
-                                conversation_id=conv["conversation_id"],
-                                text_output_only=text_output_only,
-                                base_url=base_url,
-                            )
-
-                        def request_images() -> object:
-                            return pdf_detail_from_external(
-                                system_prompt="",
-                                external_loc=external_loc,
-                                conversation_id=None,
-                                text_output_only=False,
-                                from_page=from_page,
-                                to_page=to_page,
-                                base_url=base_url,
-                            )
-
-                        img_response: object = None
-                        try:
-                            if text_output_only:
-                                response = request_text()
-                            else:
-                                with ThreadPoolExecutor(max_workers=2) as executor:
-                                    fut_text = executor.submit(request_text)
-                                    fut_images = executor.submit(request_images)
-                                    response = fut_text.result()
-                                    img_response = fut_images.result()
-                            # Store backend's first message in conversation
-                            if isinstance(response, dict):
-                                answer = (
-                                    response.get("answer")
-                                    or response.get("response")
-                                    or response.get("text")
-                                    or (str(response) if response else None)
-                                )
-                            elif isinstance(response, list):
-                                answer = "\n".join(str(x) for x in response) if response else None
-                            else:
-                                answer = str(response) if response else None
-                            if answer:
-                                conv["messages"].append({"role": "assistant", "content": answer})
-                            # Store images when we ran the images request (unchecked Text Output Only)
-                            if not text_output_only and img_response is not None:
-                                try:
-                                    all_images = _parse_image_response(img_response, pdf_id)
-                                    if all_images:
-                                        if KEY_CONVERTED_IMAGES not in st.session_state:
-                                            st.session_state[KEY_CONVERTED_IMAGES] = {}
-                                        st.session_state[KEY_CONVERTED_IMAGES][pdf_id] = all_images
-                                except Exception:
-                                    pass
-                        except Exception:
-                            pass  # don't block Process file if backend fails
-                        st.session_state[KEY_UPLOADER_RESET] += 1  # clear uploader so x is gone
+                        conv["messages"].append({"role": "assistant", "content": LOADING_PLACEHOLDER})
+                        st.session_state[KEY_PENDING_PROCESS] = pdf_id
+                        st.session_state[KEY_UPLOADER_RESET] += 1  # clear uploader
                         st.session_state[KEY_GO_TO_CHAT] = True  # switch to Chat on next run
                         st.rerun()
                 with col_toggle:
@@ -221,4 +160,75 @@ def render_left_column() -> None:
                         key=KEY_TEXT_OUTPUT_ONLY,
                     )
         else:
+            # If we just showed "Loading..." for Process file, run the backend now and replace with response
+            current = get_current_upload()
+            pending_pdf = st.session_state.get(KEY_PENDING_PROCESS)
+            if current and pending_pdf == current.get("id"):
+                conv = get_or_create_conversation(current["id"])
+                if conv["messages"] and conv["messages"][-1].get("content") == LOADING_PLACEHOLDER:
+                    prompt_prefix = (st.session_state.get(KEY_PROMPT_EDITOR) or "").strip()
+                    text_output_only = st.session_state.get(KEY_TEXT_OUTPUT_ONLY, True)
+                    from_page = st.session_state.get(KEY_FROM_PAGE, 0)
+                    to_page = st.session_state.get(KEY_TO_PAGE, 20)
+                    base_url = get_backend_base_url()
+                    external_loc = get_streamlit_app_url()
+                    pdf_id = current["id"]
+
+                    def request_text() -> object:
+                        return pdf_detail_from_external(
+                            system_prompt=prompt_prefix or "",
+                            external_loc=external_loc,
+                            from_page=from_page,
+                            to_page=to_page,
+                            conversation_id=conv["conversation_id"],
+                            text_output_only=text_output_only,
+                            base_url=base_url,
+                        )
+
+                    def request_images() -> object:
+                        return pdf_detail_from_external(
+                            system_prompt="",
+                            external_loc=external_loc,
+                            conversation_id=None,
+                            text_output_only=False,
+                            from_page=from_page,
+                            to_page=to_page,
+                            base_url=base_url,
+                        )
+
+                    img_response: object = None
+                    try:
+                        if text_output_only:
+                            response = request_text()
+                        else:
+                            with ThreadPoolExecutor(max_workers=2) as executor:
+                                fut_text = executor.submit(request_text)
+                                fut_images = executor.submit(request_images)
+                                response = fut_text.result()
+                                img_response = fut_images.result()
+                        if isinstance(response, dict):
+                            answer = (
+                                response.get("answer")
+                                or response.get("response")
+                                or response.get("text")
+                                or (str(response) if response else None)
+                            )
+                        elif isinstance(response, list):
+                            answer = "\n".join(str(x) for x in response) if response else None
+                        else:
+                            answer = str(response) if response else None
+                        conv["messages"][-1]["content"] = answer or "(No response)"
+                        if not text_output_only and img_response is not None:
+                            try:
+                                all_images = _parse_image_response(img_response, pdf_id)
+                                if all_images:
+                                    if KEY_CONVERTED_IMAGES not in st.session_state:
+                                        st.session_state[KEY_CONVERTED_IMAGES] = {}
+                                    st.session_state[KEY_CONVERTED_IMAGES][pdf_id] = all_images
+                            except Exception:
+                                pass
+                    except Exception as e:
+                        conv["messages"][-1]["content"] = f"Error: {e}"
+                    st.session_state.pop(KEY_PENDING_PROCESS, None)
+                    st.rerun()
             render_chat_tab(get_current_upload())

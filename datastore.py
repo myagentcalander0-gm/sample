@@ -24,6 +24,8 @@ KEY_FROM_PAGE = "from_page"  # page range start (default 0)
 KEY_TO_PAGE = "to_page"  # page range end (default 20)
 KEY_LEFT_TAB = "left_tab"  # 0 = Upload, 1 = Chat
 KEY_GO_TO_CHAT = "go_to_chat"  # set True when Process file clicked; applied before radio so we can switch tab
+KEY_PENDING_PROCESS = "pending_process"  # pdf_id when Process file added "Loading..." and we need to run backend on next run
+LOADING_PLACEHOLDER = "Loading..."  # assistant message content while waiting for response; replaced when API returns
 KEY_GO_TO_NOTES_TAB = "go_to_notes_tab"  # set True when Insert clicked in chat; switch main panel to Notes tab
 KEY_ACTIVE_MAIN_TAB = "active_main_tab"  # 0=Preview, 1=Analyzed PDF, 2=Notes; used so Insert can open Notes
 KEY_CONVERTED_IMAGES = "converted_images"  # dict[pdf_id, list[bytes]]: per-page image bytes for Converted tab
