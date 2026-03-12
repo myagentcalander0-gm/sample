@@ -87,24 +87,24 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
             with st.spinner("Querying..."):
                 try:
                     context = _get_context_from_current()
-                    # response = query_pdf(
-                    #     query=prompt,
-                    #     pdf_context=context,
-                    #     pdf_id=pdf_id,
-                    #     conversation_id=conversation_id,
-                    # )
-                    # if isinstance(response, dict):
-                    #     answer = (
-                    #         response.get("answer")
-                    #         or response.get("response")
-                    #         or response.get("text")
-                    #         or str(response)
-                    #     )
-                    # elif isinstance(response, list):
-                    #     answer = "\n".join(str(x) for x in response)
-                    # else:
-                    #     answer = str(response)
-                    answer = "page 2"
+                    response = query_pdf(
+                        query=prompt,
+                        pdf_context=context,
+                        pdf_id=pdf_id,
+                        conversation_id=conversation_id,
+                    )
+                    if isinstance(response, dict):
+                        answer = (
+                            response.get("answer")
+                            or response.get("response")
+                            or response.get("text")
+                            or str(response)
+                        )
+                    elif isinstance(response, list):
+                        answer = "\n".join(str(x) for x in response)
+                    else:
+                        answer = str(response)
+           
                     _render_message_with_page_links(answer, f"{pdf_id}_new")
                     messages.append({"role": "assistant", "content": answer})
                 except Exception as e:
