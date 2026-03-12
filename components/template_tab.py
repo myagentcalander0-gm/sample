@@ -7,7 +7,7 @@ from typing import Any
 import requests
 import streamlit as st
 
-from config import get_notes_to_pdf_url
+from config import get_api_headers, get_notes_to_pdf_url
 from state import get_backend_base_url
 
 KEY_PENDING_PDF = "pending_pdf_download"  # {b64: str, filename: str} after POST; trigger JS download then clear
@@ -57,7 +57,7 @@ def render_template_tab(current: dict[str, Any] | None) -> None:
         base_url = get_backend_base_url()
         url = get_notes_to_pdf_url(base_url)
         try:
-            r = requests.post(url, json={"text": text or ""}, timeout=30)
+            r = requests.post(url, json={"text": text or ""}, headers=get_api_headers(), timeout=30)
             r.raise_for_status()
             pdf_bytes = r.content
             b64 = base64.b64encode(pdf_bytes).decode("ascii")

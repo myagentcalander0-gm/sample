@@ -5,7 +5,7 @@ from typing import Any
 
 import requests
 
-from config import get_chat_api_url, get_pdf_detail_from_external_url
+from config import get_chat_api_url, get_api_headers, get_pdf_detail_from_external_url
 
 
 def query_pdf(
@@ -29,7 +29,7 @@ def query_pdf(
         payload["pdf_id"] = pdf_id
     if conversation_id:
         payload["conversation_id"] = conversation_id
-    r = requests.post(url, json=payload, timeout=timeout_sec)
+    r = requests.post(url, json=payload, headers=get_api_headers(), timeout=timeout_sec)
     r.raise_for_status()
     return r.json()
 
@@ -58,7 +58,7 @@ def pdf_detail_from_external(
     }
     if conversation_id:
         payload["conversation_id"] = conversation_id
-    r = requests.post(url, json=payload, timeout=timeout_sec)
+    r = requests.post(url, json=payload, headers=get_api_headers(), timeout=timeout_sec)
     r.raise_for_status()
     content_type = (r.headers.get("Content-Type") or "").lower()
     if "application/json" in content_type:
@@ -87,6 +87,6 @@ def query_pdf_conversation(
         payload["from_page"] = from_page
     if to_page is not None:
         payload["to_page"] = to_page
-    r = requests.post(url, json=payload, timeout=timeout_sec)
+    r = requests.post(url, json=payload, headers=get_api_headers(), timeout=timeout_sec)
     r.raise_for_status()
     return r.json()
