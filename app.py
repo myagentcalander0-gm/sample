@@ -45,6 +45,7 @@ st.markdown("""
 }
 [data-testid="stSidebarCollapseButton"]{
     position:absolute;
+    display: none;
     top:3px;
     right:10px;
     z-index:1000;
