@@ -17,7 +17,7 @@ def render_top_bar() -> None:
     # In non-dev show backend in the line; in dev we show an editable field instead
     extra = "" if is_dev() else (f" · {get_backend_display(base_url)}" if not result.ok else "")
     line = (
-        f'<span style="font-size:0.85em;">Session: <code>{session_key}</code> · Files in this session only.</span>'
+        f'<span style="font-size:0.85em;">Session: <code>{session_key}</code></span>'
         f' · <span style="color:{result.dot_color}; font-size:1em;">●</span> '
         f'<span style="font-size:0.85em;">{result.label} · {result.latency_ms:.0f} ms{extra}</span>'
     )
