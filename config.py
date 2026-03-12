@@ -5,7 +5,7 @@ import os
 DEPLOYMENT_ENV: str = os.getenv("DEPLOYMENT_ENV", "")
 
 # Sidebar max width when expanded (e.g. "400px", "30rem"). Unset = use Streamlit default.
-SIDEBAR_MAX_WIDTH: str = os.getenv("SIDEBAR_MAX_WIDTH", "")
+SIDEBAR_MAX_WIDTH: str = os.getenv("SIDEBAR_MAX_WIDTH", "900px")
 
 # Backend API for PDF query chat. Set PDF_QUERY_API_URL in env or .env.
 PDF_QUERY_API_URL: str = os.getenv("PDF_QUERY_API_URL", "http://localhost:8000")

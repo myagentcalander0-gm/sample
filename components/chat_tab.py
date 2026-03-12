@@ -14,24 +14,38 @@ from services.chat_api import query_pdf
 PAGE_REF_PATTERN = re.compile(r"\b([Pp]age\s+|[Pp]\.?\s*)(\d+)\b")
 
 
+PAGE_BUTTONS_PER_ROW = 4
+
+
 def _render_message_with_page_links(content: str, message_id: str) -> None:
-    """Render message content; page references become clickable links that jump the PDF viewer."""
-    # Split by "page N" / "Page N" / "p. N"; capturing group gives the digit, so parts alternate: text, num, text, num, ...
+    """Render message content; page references become clickable #page_N links in sorted rows of 4."""
     parts = PAGE_REF_PATTERN.split(content)
     if len(parts) == 1:
         st.markdown(content)
         return
-    seg = 0
+    # Collect all page numbers and render message text (refs as plain "page N")
+    page_nums: list[int] = []
     for i, part in enumerate(parts):
         if part.isdigit():
-            page_num = int(part)
-            key = f"chat_goto_{message_id}_p{page_num}_{seg}"
-            if st.button(f"Page {page_num}", key=key, type="secondary"):
-                st.session_state[KEY_SCROLL_TO_PAGE] = page_num
-                st.rerun()
-            seg += 1
+            page_nums.append(int(part))
+            st.markdown(f"page {part}")
         elif part:
             st.markdown(part)
+    # Sorted, deduplicated page buttons in rows of PAGE_BUTTONS_PER_ROW
+    if not page_nums:
+        return
+    unique_sorted = sorted(set(page_nums))
+    for row_start in range(0, len(unique_sorted), PAGE_BUTTONS_PER_ROW):
+        row = unique_sorted[row_start : row_start + PAGE_BUTTONS_PER_ROW]
+        if not row:
+            break
+        cols = st.columns(PAGE_BUTTONS_PER_ROW)
+        for j, page_num in enumerate(row):
+            with cols[j]:
+                key = f"chat_goto_{message_id}_p{page_num}_r{row_start}"
+                if st.button(f"#page_{page_num}", key=key, type="secondary"):
+                    st.session_state[KEY_SCROLL_TO_PAGE] = page_num
+                    st.rerun()
 
 
 def _get_context_from_current() -> str | None:
@@ -73,23 +87,24 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
             with st.spinner("Querying..."):
                 try:
                     context = _get_context_from_current()
-                    response = query_pdf(
-                        query=prompt,
-                        pdf_context=context,
-                        pdf_id=pdf_id,
-                        conversation_id=conversation_id,
-                    )
-                    if isinstance(response, dict):
-                        answer = (
-                            response.get("answer")
-                            or response.get("response")
-                            or response.get("text")
-                            or str(response)
-                        )
-                    elif isinstance(response, list):
-                        answer = "\n".join(str(x) for x in response)
-                    else:
-                        answer = str(response)
+                    # response = query_pdf(
+                    #     query=prompt,
+                    #     pdf_context=context,
+                    #     pdf_id=pdf_id,
+                    #     conversation_id=conversation_id,
+                    # )
+                    # if isinstance(response, dict):
+                    #     answer = (
+                    #         response.get("answer")
+                    #         or response.get("response")
+                    #         or response.get("text")
+                    #         or str(response)
+                    #     )
+                    # elif isinstance(response, list):
+                    #     answer = "\n".join(str(x) for x in response)
+                    # else:
+                    #     answer = str(response)
+                    answer = "page 2"
                     _render_message_with_page_links(answer, f"{pdf_id}_new")
                     messages.append({"role": "assistant", "content": answer})
                 except Exception as e:

@@ -18,7 +18,10 @@ st.set_page_config(
 # Limit sidebar max width when expanded (drag to resize)
 if SIDEBAR_MAX_WIDTH:
     st.markdown(
-        f'<style>section[data-testid="stSidebar"] {{ max-width: {SIDEBAR_MAX_WIDTH} !important; }}</style>',
+        f'<style>'
+        f'body section[data-testid="stSidebar"] {{  max-width: {SIDEBAR_MAX_WIDTH} !important; }} '
+        f'section[data-testid="stSidebar"] > div {{  max-width: {SIDEBAR_MAX_WIDTH} !important; }}'
+        f'</style>',
         unsafe_allow_html=True,
     )
 
