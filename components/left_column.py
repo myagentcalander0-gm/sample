@@ -19,7 +19,7 @@ from datastore import (
     KEY_UPLOADS,
     KEY_UPLOADER_RESET,
 )
-from state import get_current_upload, get_or_create_conversation, get_backend_base_url
+from state import get_current_upload, get_or_create_conversation, get_backend_base_url, get_streamlit_app_url
 from pdf_utils import add_upload
 from components.chat_tab import render_chat_tab
 from services.chat_api import pdf_detail_from_external
@@ -152,10 +152,11 @@ def render_left_column() -> None:
                         to_page = st.session_state.get(KEY_TO_PAGE, 20)
                         base_url = get_backend_base_url()
 
+                        external_loc = get_streamlit_app_url()  # full URL of current Streamlit host
                         def request_text() -> object:
                             return pdf_detail_from_external(
                                 system_prompt=prompt_prefix or "",
-                                external_loc=uploaded_file.name,
+                                external_loc=external_loc,
                                 from_page=from_page,
                                 to_page=to_page,
                                 conversation_id=conv["conversation_id"],
@@ -166,7 +167,7 @@ def render_left_column() -> None:
                         def request_images() -> object:
                             return pdf_detail_from_external(
                                 system_prompt="",
-                                external_loc=uploaded_file.name,
+                                external_loc=external_loc,
                                 conversation_id=None,
                                 text_output_only=False,
                                 from_page=from_page,

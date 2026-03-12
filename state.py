@@ -6,7 +6,7 @@ from typing import Any
 
 import streamlit as st
 
-from config import PDF_QUERY_API_URL
+from config import PDF_QUERY_API_URL, STREAMLIT_APP_URL
 from datastore import (
     KEY_ACTIVE_MAIN_TAB,
     KEY_BACKEND_BASE_URL,
@@ -66,6 +66,39 @@ def ensure_session_state() -> None:
 def get_backend_base_url() -> str:
     """Backend base URL for health/chat requests; from session state (editable in dev) or config."""
     return (st.session_state.get(KEY_BACKEND_BASE_URL) or "").strip() or PDF_QUERY_API_URL
+
+
+def get_streamlit_app_url() -> str:
+    """Full base URL of the current Streamlit app (origin), for external_loc etc. Falls back to STREAMLIT_APP_URL env."""
+    # 1) st.context.url (Streamlit 1.45+): use origin only (strip path)
+    try:
+        ctx_url = getattr(st.context, "url", None)
+        if ctx_url:
+            from urllib.parse import urlparse
+            parsed = urlparse(ctx_url)
+            scheme = parsed.scheme or "https"
+            netloc = parsed.netloc or "localhost:8501"
+            return f"{scheme}://{netloc}".rstrip("/")
+    except Exception:
+        pass
+    # 2) Build from request headers (Host, X-Forwarded-Proto)
+    try:
+        headers = getattr(st.context, "headers", None)
+        if headers:
+            host = (headers.get("host") or headers.get("Host") or "").strip()
+            proto = (headers.get("x-forwarded-proto") or headers.get("X-Forwarded-Proto") or "").strip().lower()
+            if not proto and "localhost" in host:
+                proto = "http"
+            if not proto:
+                proto = "https"
+            if host:
+                return f"{proto}://{host}".rstrip("/")
+    except Exception:
+        pass
+    # 3) Env fallback
+    if (STREAMLIT_APP_URL or "").strip():
+        return (STREAMLIT_APP_URL or "").strip().rstrip("/")
+    return "http://localhost:8501"
 
 
 def get_current_upload() -> dict[str, Any] | None:
