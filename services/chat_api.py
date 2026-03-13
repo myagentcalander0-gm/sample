@@ -35,8 +35,8 @@ def query_pdf(
 
 
 def pdf_detail_from_external(
-    system_prompt: str,
-    external_loc: str,
+    system_prompt: str | None = None,
+    external_loc: str | None = None,
     conversation_id: str | None = None,
     text_output_only: bool = False,
     from_page: int = 1,

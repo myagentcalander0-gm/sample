@@ -135,7 +135,7 @@ def _maybe_run_pending_process() -> None:
     def request_images() -> object:
         _debug_log("request_images: start")
         return pdf_detail_from_external(
-            system_prompt="",
+            system_prompt=None,
             external_loc=external_loc,
             conversation_id=None,
             text_output_only=False,
