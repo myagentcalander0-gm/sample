@@ -3,6 +3,15 @@ from __future__ import annotations
 
 import re
 
+# PDF layout defaults (A4 portrait, mm units)
+PDF_FORMAT = "A4"
+PDF_FONT_FAMILY = "Helvetica"
+PDF_FONT_SIZE = 11
+PDF_LINE_HEIGHT = 7.5  # vertical spacing per rendered line (was 6)
+PDF_MARGIN_LEFT = 15
+PDF_MARGIN_RIGHT = 15
+PDF_MARGIN_TOP = 15
+PDF_MARGIN_BOTTOM = 15
 
 # Printable ASCII only (32-126); fpdf2 can choke on other codepoints → "Not enough horizontal space"
 def _to_printable_ascii(s: str, keep_newline: bool = True) -> str:
@@ -66,17 +75,18 @@ def _build_pdf(plain: str) -> bytes:
     from fpdf import FPDF
     from fpdf.enums import XPos, YPos
 
-    pdf = FPDF()
+    pdf = FPDF(format=PDF_FORMAT)
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Helvetica", size=11)
+    pdf.set_margins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT)
+    pdf.set_auto_page_break(auto=True, margin=PDF_MARGIN_BOTTOM)
+    pdf.set_font(PDF_FONT_FAMILY, size=PDF_FONT_SIZE)
     usable_width = max(20.0, pdf.w - pdf.l_margin - pdf.r_margin)
     for line in plain.split("\n"):
         for part in _split_to_fit_width(pdf, line, usable_width):
             safe = part.strip() or " "
             pdf.multi_cell(
                 usable_width,
-                6,
+                PDF_LINE_HEIGHT,
                 safe,
                 new_x=XPos.LMARGIN,
                 new_y=YPos.NEXT,

@@ -42,11 +42,14 @@ def render_template_tab(current: dict[str, Any] | None) -> None:
             label_visibility="collapsed",
         )
     with tab_preview:
+        # Approximate PDF content width so users can estimate line wraps before download.
+        st.markdown('<div style="max-width: 680px;">', unsafe_allow_html=True)
         preview_text = st.session_state.get(text_key, "")
         if (preview_text or "").strip():
             st.markdown(preview_text)
         else:
             st.caption("_No content yet. Add markdown in the Editor tab._")
+        st.markdown("</div>", unsafe_allow_html=True)
 
     text = st.session_state.get(text_key, "")
 
