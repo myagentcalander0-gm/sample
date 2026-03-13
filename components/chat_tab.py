@@ -28,7 +28,7 @@ PAGE_REF_PATTERN = re.compile(r"\b([Pp]age\s+|[Pp]\.?\s*)(\d+)\b")
 
 PAGE_BUTTONS_PER_ROW = 4
 
-# CSS: Insert button; page ref buttons; Pages multiselect (div-based, red -> grey, smaller).
+# CSS: hover over assistant message reveals Insert button (first column); 20x10px, light grey, slight black text
 _CHAT_INSERT_CSS = """
 <style>
 [data-testid="stChatMessage"] { position: relative; }
@@ -50,7 +50,7 @@ _CHAT_INSERT_CSS = """
   border: 1px solid #bbb !important;
   border-radius: 3px !important;
 }
-/* Page ref buttons (#page_N) in messages */
+/* Page ref buttons (#page_N) in messages: gray, compact */
 [data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] > div:nth-child(2) button {
   background-color: #9ca3af !important;
   color: #fff !important;
@@ -60,23 +60,26 @@ _CHAT_INSERT_CSS = """
   min-height: 22px !important;
   height: auto !important;
 }
-/* Pages multiselect: st-key-page_selection + stMultiSelect (divs, not buttons). Grey, smaller font/size. */
-[class*="st-key-page_selection"] [data-testid="stMultiSelect"],
-[class*="st-key-page_selection"] [data-testid="stMultiSelect"] * {
+/* Wrapper is a marker only; no layout space */
+.chat-tab-page-selector-root { display: none !important; }
+/* Chat tab page selector (Pages multiselect): div-based, not buttons. Target via .chat-tab-page-selector-root + container. */
+.chat-tab-page-selector-root + [class*="st-key-page_selection"] [data-testid="stMultiSelect"],
+.chat-tab-page-selector-root + [class*="st-key-page_selection"] [data-testid="stMultiSelect"] *,
+.chat-tab-page-selector-root + [class*="st-key-page_selection"] [data-baseweb="select"],
+.chat-tab-page-selector-root + [class*="st-key-page_selection"] [data-baseweb="select"] * {
   font-size: 0.8rem !important;
 }
-[class*="st-key-page_selection"] [data-testid="stWidgetLabel"] {
-  font-size: 0.8rem !important;
-}
-[class*="st-key-page_selection"] [data-baseweb="select"],
-[class*="st-key-page_selection"] [data-baseweb="select"] > div,
-[class*="st-key-page_selection"] [data-baseweb="select"] div[class*="st-"] {
+.chat-tab-page-selector-root + [class*="st-key-page_selection"] [data-baseweb="select"],
+.chat-tab-page-selector-root + [class*="st-key-page_selection"] [data-baseweb="select"] > div,
+.chat-tab-page-selector-root + [class*="st-key-page_selection"] [data-testid="stMultiSelect"] [class*="st-"] {
   background-color: #9ca3af !important;
   color: #fff !important;
   border-color: #6b7280 !important;
   min-height: 26px !important;
   padding: 2px 6px !important;
-  font-size: 0.8rem !important;
+}
+.chat-tab-page-selector-root + [class*="st-key-page_selection"] [data-testid="stWidgetLabel"] {
+  font-size: 0.85rem !important;
 }
 </style>
 """
@@ -148,6 +151,7 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
         st.info("Select a PDF in the Upload tab to chat about it.")
         return
 
+    st.markdown(_CHAT_INSERT_CSS, unsafe_allow_html=True)
     pdf_id = current.get("id") or ""
     st.session_state[KEY_CURRENT_UPLOAD] = current
 
@@ -214,10 +218,14 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
             else:
                 st.markdown(msg["content"])
 
-    # Page selection
+    # Page selection (wrapper class so CSS can target the Pages multiselect accurately)
     if page_options and page_selection_key not in st.session_state:
         st.session_state[page_selection_key] = page_options.copy()
     if page_options:
+        st.markdown(
+            '<div class="chat-tab-page-selector-root" data-testid="chat-tab-page-selector"></div>',
+            unsafe_allow_html=True,
+        )
         st.multiselect(
             "Pages",
             options=page_options,

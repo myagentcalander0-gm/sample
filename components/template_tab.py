@@ -26,14 +26,10 @@ def render_template_tab(current: dict[str, Any] | None) -> None:
     pdf_id = current.get("id") or ""
     text_key = _template_text_key(pdf_id)
     st.caption(f"Notes for **{current.get('name', 'PDF')}**. Use **Insert** on chat responses to add rows here. Markdown is supported.")
-    # Rendered markdown view (so pasted agent response with markdown displays correctly)
     text = st.session_state.get(text_key, "")
-    if (text or "").strip():
-        st.markdown(text)
-    else:
-        st.caption("_No notes yet. Insert from chat or open Edit source to paste markdown._")
-    # Editable source: paste or edit markdown
-    with st.expander("Edit source", expanded=False):
+
+    tab_editor, tab_preview = st.tabs(["Editor", "Edit Preview"])
+    with tab_editor:
         st.text_area(
             "Notes (markdown)",
             value=text,
@@ -42,7 +38,13 @@ def render_template_tab(current: dict[str, Any] | None) -> None:
             placeholder="Paste markdown from the agent or type here…",
             label_visibility="collapsed",
         )
-    # Re-read after widget (session state is source of truth)
+    with tab_preview:
+        preview_text = st.session_state.get(text_key, "")
+        if (preview_text or "").strip():
+            st.markdown(preview_text)
+        else:
+            st.caption("_No content yet. Add markdown in the Editor tab._")
+
     text = st.session_state.get(text_key, "")
 
     # Download filename: Case ID (per-PDF) if set, else PDF base name + _notes
