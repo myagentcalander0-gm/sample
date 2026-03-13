@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
@@ -26,6 +27,18 @@ from pdf_utils import add_upload
 from components.chat_tab import render_chat_tab
 from services.chat_api import pdf_detail_from_external
 from services.langfuse_prompt import get_prompt_from_langfuse
+
+KEY_DEBUG_REQUEST_LOGS = "debug_request_logs"
+
+
+def _debug_log(message: str) -> None:
+    """Write request debug info to server logs and keep recent entries in session for UI."""
+    ts = datetime.now().strftime("%H:%M:%S")
+    line = f"[{ts}] {message}"
+    print(line, flush=True)
+    logs = st.session_state.get(KEY_DEBUG_REQUEST_LOGS, [])
+    logs.append(line)
+    st.session_state[KEY_DEBUG_REQUEST_LOGS] = logs[-80:]
 
 
 def _parse_image_response(response: object, pdf_id: str) -> list[bytes]:
@@ -96,8 +109,12 @@ def _maybe_run_pending_process() -> None:
     base_url = get_backend_base_url()
     external_loc = get_streamlit_app_url()
     pdf_id = current["id"]
+    _debug_log(
+        f"pending process start: pdf_id={pdf_id[:8]} text_output_only={text_output_only} from={from_page} to={to_page}"
+    )
 
     def request_text() -> object:
+        _debug_log("request_text: start")
         return pdf_detail_from_external(
             system_prompt=prompt_prefix or "",
             external_loc=external_loc,
@@ -109,6 +126,7 @@ def _maybe_run_pending_process() -> None:
         )
 
     def request_images() -> object:
+        _debug_log("request_images: start")
         return pdf_detail_from_external(
             system_prompt="",
             external_loc=external_loc,
@@ -122,13 +140,17 @@ def _maybe_run_pending_process() -> None:
     img_response: object = None
     try:
         if text_output_only:
+            _debug_log("branch: text_output_only=True -> sending one request (text only)")
             response = request_text()
         else:
+            _debug_log("branch: text_output_only=False -> sending two concurrent requests (text + images)")
             with ThreadPoolExecutor(max_workers=2) as executor:
                 fut_text = executor.submit(request_text)
                 fut_images = executor.submit(request_images)
                 response = fut_text.result()
+                _debug_log(f"request_text: done type={type(response).__name__}")
                 img_response = fut_images.result()
+                _debug_log(f"request_images: done type={type(img_response).__name__}")
         if isinstance(response, dict):
             answer = (
                 response.get("summary")
@@ -146,16 +168,23 @@ def _maybe_run_pending_process() -> None:
         # Images: prefer summarized_images from same response (single request); else use img_response (second request)
         images_to_show = None
         if isinstance(response, dict) and response.get("summarized_images") is not None:
+            _debug_log("images source: summarized_images from text response")
             images_to_show = _parse_image_response(response, pdf_id)
         if images_to_show is None and not text_output_only and img_response is not None:
+            _debug_log("images source: separate image response")
             images_to_show = _parse_image_response(img_response, pdf_id)
         if images_to_show:
             if KEY_CONVERTED_IMAGES not in st.session_state:
                 st.session_state[KEY_CONVERTED_IMAGES] = {}
             st.session_state[KEY_CONVERTED_IMAGES][pdf_id] = images_to_show
+            _debug_log(f"stored images: count={len(images_to_show)}")
+        else:
+            _debug_log("stored images: none")
     except Exception as e:
         conv["messages"][-1]["content"] = f"Error: {e}"
+        _debug_log(f"pending process error: {e}")
     st.session_state.pop(KEY_PENDING_PROCESS, None)
+    _debug_log("pending process complete -> rerun")
     st.rerun()
 
 
@@ -190,6 +219,12 @@ def render_left_column() -> None:
         )
         # Run pending Process-file backend work regardless of which sidebar tab is currently visible.
         _maybe_run_pending_process()
+        with st.expander("Request debug", expanded=False):
+            logs = st.session_state.get(KEY_DEBUG_REQUEST_LOGS, [])
+            if logs:
+                st.code("\n".join(logs[-25:]), language="text")
+            else:
+                st.caption("No request logs yet.")
         if tab_index == 0:
             # Prompt section: default from prompts/default.md, then Langfuse when empty
             if KEY_PROMPT_EDITOR not in st.session_state:
