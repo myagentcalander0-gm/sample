@@ -134,7 +134,7 @@ def render_left_column() -> None:
             if uploaded_file is not None:
                 col_from, col_to = st.columns(2)
                 with col_from:
-                    st.number_input("From", min_value=1, value=st.session_state.get(KEY_FROM_PAGE, 1), key=KEY_FROM_PAGE)
+                    st.number_input("From", min_value=1, value=max(1, st.session_state.get(KEY_FROM_PAGE, 1)), key=KEY_FROM_PAGE)
                 with col_to:
                     st.number_input("To", min_value=0, value=st.session_state.get(KEY_TO_PAGE, 20), key=KEY_TO_PAGE)
                 col_btn, col_toggle = st.columns([1, 1])
