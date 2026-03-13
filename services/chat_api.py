@@ -14,7 +14,7 @@ def query_pdf(
     pdf_id: str | None = None,
     conversation_id: str | None = None,
     base_url: str | None = None,
-    timeout_sec: float = 30.0,
+    timeout_sec: float = 180.0,
 ) -> dict[str, Any] | list[Any]:
     """
     Call backend API to query the PDF.
@@ -42,7 +42,7 @@ def pdf_detail_from_external(
     from_page: int = 0,
     to_page: int = 20,
     base_url: str | None = None,
-    timeout_sec: float = 30.0,
+    timeout_sec: float = 180.0,
 ) -> dict[str, Any] | list[Any] | bytes:
     """
     Called when user clicks Process file: send system_prompt, external_loc, conversation_id,
@@ -72,7 +72,7 @@ def query_pdf_conversation(
     from_page: int | None = None,
     to_page: int | None = None,
     base_url: str | None = None,
-    timeout_sec: float = 30.0,
+    timeout_sec: float = 180.0,
 ) -> dict[str, Any] | list[Any]:
     """
     Send conversation_id, conversations (last message). from_page/to_page only on first message.
