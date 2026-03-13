@@ -39,7 +39,7 @@ def pdf_detail_from_external(
     external_loc: str,
     conversation_id: str | None = None,
     text_output_only: bool = False,
-    from_page: int = 0,
+    from_page: int = 1,
     to_page: int = 20,
     base_url: str | None = None,
     timeout_sec: float = 180.0,
@@ -53,7 +53,7 @@ def pdf_detail_from_external(
         "system_prompt": system_prompt,
         "external_loc": external_loc,
         "text_output_only": text_output_only,
-        "from_page": from_page,
+        "from_page": max(1, from_page),
         "to_page": to_page,
     }
     if conversation_id:
@@ -84,7 +84,7 @@ def query_pdf_conversation(
         "conversations": conversations,
     }
     if from_page is not None:
-        payload["from_page"] = from_page
+        payload["from_page"] = max(1, from_page)
     if to_page is not None:
         payload["to_page"] = to_page
     r = requests.post(url, json=payload, headers=get_api_headers(), timeout=timeout_sec)

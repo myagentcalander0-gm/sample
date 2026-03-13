@@ -14,14 +14,16 @@ STREAMLIT_APP_URL: str = os.getenv("STREAMLIT_APP_URL", "")
 HEALTH_PATH: str = os.getenv("HEALTH_PATH", "/health")
 CHAT_PATH: str = os.getenv("CHAT_PATH", "/continue_chat")
 # Optional API key sent as x-api-key header on backend requests.
-X_API_KEY: str = os.getenv("X_API_KEY", "")
+X_API_KEY: str = os.getenv("X_API_KEY", "asd")
 
 
 def get_api_headers() -> dict[str, str]:
-    """Headers to append to backend API requests (e.g. x-api-key)."""
-    if (X_API_KEY or "").strip():
-        return {"x-api-key": (X_API_KEY or "").strip()}
-    return {}
+    """Headers for backend API requests: Content-Type application/json and x-api-key."""
+    key = (X_API_KEY or "asd").strip()
+    return {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+    }
 
 
 # Langfuse: prompt source (pk, sk, url). If set, Prompt editor pulls from Langfuse when empty.

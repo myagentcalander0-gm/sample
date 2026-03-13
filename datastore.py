@@ -20,7 +20,7 @@ KEY_UPLOADER_RESET = "uploader_reset"  # bumped after Process file to clear uplo
 KEY_TEXT_OUTPUT_ONLY = "text_output_only"  # toggle next to Process file: when True, process for text only
 KEY_BACKEND_BASE_URL = "backend_base_url"  # editable in dev; used for health and chat requests
 KEY_PROMPT_EDITOR = "prompt_editor"  # prompt text (in Upload tab); used as system_prompt and prefix
-KEY_FROM_PAGE = "from_page"  # page range start (default 0)
+KEY_FROM_PAGE = "from_page"  # page range start (default 1; must be >= 1)
 KEY_TO_PAGE = "to_page"  # page range end (default 20)
 KEY_LEFT_TAB = "left_tab"  # 0 = Upload, 1 = Chat
 KEY_GO_TO_CHAT = "go_to_chat"  # set True when Process file clicked; applied before radio so we can switch tab
