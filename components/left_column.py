@@ -208,7 +208,8 @@ def render_left_column() -> None:
                                 img_response = fut_images.result()
                         if isinstance(response, dict):
                             answer = (
-                                response.get("answer")
+                                response.get("summary_text")
+                                or response.get("answer")
                                 or response.get("response")
                                 or response.get("text")
                                 or (str(response) if response else None)

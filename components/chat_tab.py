@@ -28,7 +28,7 @@ PAGE_REF_PATTERN = re.compile(r"\b([Pp]age\s+|[Pp]\.?\s*)(\d+)\b")
 
 PAGE_BUTTONS_PER_ROW = 4
 
-# CSS: hover over assistant message reveals Insert button (first column); 20x10px, light grey, slight black text
+# CSS: Insert button; page ref buttons; Pages multiselect (div-based, red -> grey, smaller).
 _CHAT_INSERT_CSS = """
 <style>
 [data-testid="stChatMessage"] { position: relative; }
@@ -49,6 +49,34 @@ _CHAT_INSERT_CSS = """
   color: rgba(0, 0, 0, 0.75) !important;
   border: 1px solid #bbb !important;
   border-radius: 3px !important;
+}
+/* Page ref buttons (#page_N) in messages */
+[data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] > div:nth-child(2) button {
+  background-color: #9ca3af !important;
+  color: #fff !important;
+  border-color: #6b7280 !important;
+  font-size: 0.7rem !important;
+  padding: 2px 6px !important;
+  min-height: 22px !important;
+  height: auto !important;
+}
+/* Pages multiselect: st-key-page_selection + stMultiSelect (divs, not buttons). Grey, smaller font/size. */
+[class*="st-key-page_selection"] [data-testid="stMultiSelect"],
+[class*="st-key-page_selection"] [data-testid="stMultiSelect"] * {
+  font-size: 0.8rem !important;
+}
+[class*="st-key-page_selection"] [data-testid="stWidgetLabel"] {
+  font-size: 0.8rem !important;
+}
+[class*="st-key-page_selection"] [data-baseweb="select"],
+[class*="st-key-page_selection"] [data-baseweb="select"] > div,
+[class*="st-key-page_selection"] [data-baseweb="select"] div[class*="st-"] {
+  background-color: #9ca3af !important;
+  color: #fff !important;
+  border-color: #6b7280 !important;
+  min-height: 26px !important;
+  padding: 2px 6px !important;
+  font-size: 0.8rem !important;
 }
 </style>
 """
@@ -164,7 +192,8 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
             )
             if isinstance(response, dict):
                 answer = (
-                    response.get("answer")
+                    response.get("summary_text")
+                    or response.get("answer")
                     or response.get("response")
                     or response.get("text")
                     or str(response)
