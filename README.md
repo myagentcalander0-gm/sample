@@ -9,6 +9,8 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+**Notes → PDF** uses **fpdf2** (pure Python) and built-in text sanitization only — no system libraries required.
+
 ## Project layout
 
 - **`app.py`** – Entry point; composes sidebar and tabs.
