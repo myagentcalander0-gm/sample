@@ -8,4 +8,4 @@ if [[ ! -d .venv ]]; then
   exit 1
 fi
 
-exec .venv/bin/python -m streamlit run app.py --server.port 8501
+exec .venv/bin/python -m streamlit run app/app.py --server.port 8501

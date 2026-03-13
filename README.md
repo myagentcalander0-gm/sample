@@ -6,7 +6,7 @@ Session-based app: upload PDFs, preview them, view converted text, chat to query
 
 ```bash
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run app/app.py
 ```
 
 **Notes → PDF** uses **fpdf2** (pure Python) and built-in text sanitization only — no system libraries required.
