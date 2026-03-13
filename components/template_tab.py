@@ -37,7 +37,7 @@ def render_template_tab(current: dict[str, Any] | None) -> None:
             "Notes (markdown)",
             value=text,
             key=text_key,
-            height=300,
+            height=450,
             placeholder="Paste markdown from the agent or type here…",
             label_visibility="collapsed",
         )

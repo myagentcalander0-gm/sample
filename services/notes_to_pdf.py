@@ -73,6 +73,8 @@ def _build_pdf(plain: str) -> bytes:
     for line in plain.split("\n"):
         for part in _split_to_fit_width(pdf, line, usable_width):
             safe = part.strip() or " "
+            # Always reset x to left margin before writing the next chunk.
+            pdf.set_x(pdf.l_margin)
             pdf.multi_cell(usable_width, 6, safe)
     return bytes(pdf.output())
 
