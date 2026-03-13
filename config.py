@@ -46,11 +46,15 @@ def get_chat_api_url(base_url: str | None = None) -> str:
 
 
 NOTES_TO_PDF_PATH: str = os.getenv("NOTES_TO_PDF_PATH", "notes_to_pdf")
+# Base URL for notes→PDF: use Streamlit server (not the summarize API). Set NOTES_TO_PDF_BASE_URL if auto-detect fails.
+NOTES_TO_PDF_BASE_URL: str = os.getenv("NOTES_TO_PDF_BASE_URL", "").strip()
 
 
 def get_notes_to_pdf_url(base_url: str | None = None) -> str:
-    """URL for POST notes text -> PDF (backend returns PDF bytes)."""
-    base = (base_url or PDF_QUERY_API_URL).rstrip("/")
+    """URL for POST notes text -> PDF. base_url should be the Streamlit server (not PDF_QUERY_API_URL)."""
+    base = (base_url or "").rstrip("/")
+    if not base:
+        return ""
     path = NOTES_TO_PDF_PATH if NOTES_TO_PDF_PATH.startswith("/") else f"/{NOTES_TO_PDF_PATH}"
     return f"{base}{path}"
 

@@ -1,14 +1,12 @@
-"""Template tab: per-PDF notes editor and Download as PDF via backend POST."""
+"""Template tab: per-PDF notes editor and Download as PDF (in-app conversion, no external route)."""
 from __future__ import annotations
 
 import base64
 from typing import Any
 
-import requests
 import streamlit as st
 
-from config import get_api_headers, get_notes_to_pdf_url
-from state import get_backend_base_url
+from services.notes_to_pdf import notes_markdown_to_pdf_bytes
 
 KEY_PENDING_PDF = "pending_pdf_download"  # {b64: str, filename: str} after POST; trigger JS download then clear
 
@@ -19,7 +17,7 @@ def _template_text_key(pdf_id: str) -> str:
 
 
 def render_template_tab(current: dict[str, Any] | None) -> None:
-    """Render the Template tab: per-PDF notes and Download as PDF (POST to backend on click)."""
+    """Render the Template tab: per-PDF notes and Download as PDF (in-app conversion on click)."""
     if current is None:
         st.info("Select a PDF to see and edit its notes.")
         return
@@ -47,28 +45,32 @@ def render_template_tab(current: dict[str, Any] | None) -> None:
 
     text = st.session_state.get(text_key, "")
 
-    # Download filename: Case ID (per-PDF) if set, else PDF base name + _notes
+    # Download as PDF: converts all edited notes (markdown) to PDF; output filename = case_id.pdf (Case ID required)
     case_id = (st.session_state.get(f"case_id_{pdf_id}") or "").strip()
     if case_id:
-        filename = f"{case_id}.pdf" if not case_id.lower().endswith(".pdf") else case_id
+        filename = case_id if case_id.lower().endswith(".pdf") else f"{case_id}.pdf"
     else:
-        filename = (current.get("name") or "template").rsplit(".", 1)[0] + "_notes.pdf"
+        filename = None
 
-    # Only convert on click: POST to backend when user clicks the button
-    if st.button("Download as PDF", type="primary", key=f"btn_dl_pdf_{pdf_id}"):
-        base_url = get_backend_base_url()
-        url = get_notes_to_pdf_url(base_url)
+    if st.button(
+        "Download as PDF",
+        type="primary",
+        key=f"btn_dl_pdf_{pdf_id}",
+        disabled=(not filename),
+        help="Converts all edited notes to PDF. Set Case ID in the sidebar; output will be case_id.pdf.",
+    ):
+        # Convert notes to PDF in-app (no HTTP route). Streamlit has no /notes_to_pdf endpoint; we do markdown→PDF here and pass bytes to the browser for auto-download.
+        editor_content = (st.session_state.get(text_key) or "").strip()
         try:
-            r = requests.post(url, json={"text": text or ""}, headers=get_api_headers(), timeout=30)
-            r.raise_for_status()
-            pdf_bytes = r.content
+            pdf_bytes = notes_markdown_to_pdf_bytes(editor_content)
             b64 = base64.b64encode(pdf_bytes).decode("ascii")
-            st.session_state[KEY_PENDING_PDF] = {"b64": b64, "filename": filename}  # filename uses Case ID when set
+            st.session_state[KEY_PENDING_PDF] = {"b64": b64, "filename": filename}
             st.rerun()
-        except requests.RequestException as e:
-            st.error(f"Request failed: {e}")
         except Exception as e:
             st.error(f"Download failed: {e}")
+
+    if not filename:
+        st.caption("Set **Case ID** in the sidebar to download. Output file will be **case_id.pdf**.")
 
     # After rerun with pending PDF: trigger browser download via JS, then clear
     pending = st.session_state.pop(KEY_PENDING_PDF, None)

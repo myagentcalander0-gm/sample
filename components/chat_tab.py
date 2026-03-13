@@ -196,7 +196,8 @@ def render_chat_tab(current: dict[str, Any] | None) -> None:
             )
             if isinstance(response, dict):
                 answer = (
-                    response.get("summary_text")
+                    response.get("summary")
+                    or response.get("summary_text")
                     or response.get("answer")
                     or response.get("response")
                     or response.get("text")

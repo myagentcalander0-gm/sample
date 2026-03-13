@@ -37,8 +37,12 @@ def _parse_image_response(response: object, pdf_id: str) -> list[bytes]:
                 images.append(response)
             return images
         if isinstance(response, dict):
-            # "images": [base64, ...] or "image": base64
-            raw = response.get("images") or (response.get("image") and [response["image"]])
+            # "images": [base64, ...], "image": base64, or "summarized_images": [...]
+            raw = (
+                response.get("images")
+                or (response.get("image") and [response["image"]])
+                or response.get("summarized_images")
+            )
             if not raw:
                 return []
             for item in raw:
@@ -123,7 +127,7 @@ def render_left_column() -> None:
             with st.expander("Prompt (optional)", expanded=False):
                 st.text_area(
                     "Edit prompt",
-                    height=120,
+                    height=240,
                     key=KEY_PROMPT_EDITOR,
                     placeholder="Add optional context or instructions for your questions...",
                     label_visibility="collapsed",
@@ -208,7 +212,8 @@ def render_left_column() -> None:
                                 img_response = fut_images.result()
                         if isinstance(response, dict):
                             answer = (
-                                response.get("summary_text")
+                                response.get("summary")
+                                or response.get("summary_text")
                                 or response.get("answer")
                                 or response.get("response")
                                 or response.get("text")
@@ -219,15 +224,16 @@ def render_left_column() -> None:
                         else:
                             answer = str(response) if response else None
                         conv["messages"][-1]["content"] = answer or "(No response)"
-                        if not text_output_only and img_response is not None:
-                            try:
-                                all_images = _parse_image_response(img_response, pdf_id)
-                                if all_images:
-                                    if KEY_CONVERTED_IMAGES not in st.session_state:
-                                        st.session_state[KEY_CONVERTED_IMAGES] = {}
-                                    st.session_state[KEY_CONVERTED_IMAGES][pdf_id] = all_images
-                            except Exception:
-                                pass
+                        # Images: prefer summarized_images from same response (single request); else use img_response (second request)
+                        images_to_show = None
+                        if isinstance(response, dict) and response.get("summarized_images") is not None:
+                            images_to_show = _parse_image_response(response, pdf_id)
+                        if images_to_show is None and not text_output_only and img_response is not None:
+                            images_to_show = _parse_image_response(img_response, pdf_id)
+                        if images_to_show:
+                            if KEY_CONVERTED_IMAGES not in st.session_state:
+                                st.session_state[KEY_CONVERTED_IMAGES] = {}
+                            st.session_state[KEY_CONVERTED_IMAGES][pdf_id] = images_to_show
                     except Exception as e:
                         conv["messages"][-1]["content"] = f"Error: {e}"
                     st.session_state.pop(KEY_PENDING_PROCESS, None)
