@@ -13,7 +13,6 @@ from datastore import (
     KEY_GO_TO_NOTES_TAB,
     KEY_PROMPT_EDITOR,
     KEY_SCROLL_TO_PAGE,
-    KEY_TEMPLATE_ROWS,
     KEY_TEXT_OUTPUT_ONLY,
     KEY_TO_PAGE,
     LOADING_PLACEHOLDER,
@@ -92,13 +91,13 @@ def _render_assistant_message_with_insert(content: str, message_id: str, pdf_id:
     with col_btn:
         insert_key = f"insert_tpl_{message_id}"
         if st.button("Insert", key=insert_key, type="secondary"):
-            rows_by_pdf = st.session_state.get(KEY_TEMPLATE_ROWS, {})
-            rows = list(rows_by_pdf.get(pdf_id, []))
-            rows.append(content)
-            if KEY_TEMPLATE_ROWS not in st.session_state:
-                st.session_state[KEY_TEMPLATE_ROWS] = {}
-            st.session_state[KEY_TEMPLATE_ROWS][pdf_id] = rows
-            st.session_state[_template_text_key(pdf_id)] = "\n\n".join(rows)
+            text_key = _template_text_key(pdf_id)
+            existing = (st.session_state.get(text_key) or "").rstrip()
+            incoming = (content or "").strip()
+            if existing and incoming:
+                st.session_state[text_key] = f"{existing}\n\n{incoming}"
+            elif incoming:
+                st.session_state[text_key] = incoming
             st.session_state[KEY_GO_TO_NOTES_TAB] = True  # switch main panel to Notes tab
             st.rerun()
     with col_msg:
