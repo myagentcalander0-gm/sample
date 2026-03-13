@@ -64,6 +64,7 @@ def _split_to_fit_width(pdf: object, line: str, max_width: float) -> list[str]:
 def _build_pdf(plain: str) -> bytes:
     """Build PDF from plain text with width-safe splitting to avoid layout errors."""
     from fpdf import FPDF
+    from fpdf.enums import XPos, YPos
 
     pdf = FPDF()
     pdf.add_page()
@@ -73,9 +74,13 @@ def _build_pdf(plain: str) -> bytes:
     for line in plain.split("\n"):
         for part in _split_to_fit_width(pdf, line, usable_width):
             safe = part.strip() or " "
-            # Always reset x to left margin before writing the next chunk.
-            pdf.set_x(pdf.l_margin)
-            pdf.multi_cell(usable_width, 6, safe)
+            pdf.multi_cell(
+                usable_width,
+                6,
+                safe,
+                new_x=XPos.LMARGIN,
+                new_y=YPos.NEXT,
+            )
     return bytes(pdf.output())
 
 
