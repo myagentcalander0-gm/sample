@@ -7,6 +7,8 @@ import streamlit as st
 
 from services.notes_to_pdf import notes_markdown_to_pdf_bytes
 
+KEY_PENDING_PDF = "pending_pdf_download"  # {bytes: bytes, filename: str} — set only when user clicks Download as PDF
+
 
 def _template_text_key(pdf_id: str) -> str:
     """Session state key for this PDF's template text."""
@@ -44,27 +46,39 @@ def render_template_tab(current: dict[str, Any] | None) -> None:
 
     text = st.session_state.get(text_key, "")
 
-    # Download as PDF: one button — generates PDF from current editor content and downloads on click.
+    # Download as PDF: convert only when user clicks (not on every page load).
     case_id = (st.session_state.get(f"case_id_{pdf_id}") or "").strip()
     if case_id:
         filename = case_id if case_id.lower().endswith(".pdf") else f"{case_id}.pdf"
     else:
         filename = None
 
-    if filename:
+    if st.button(
+        "Download as PDF",
+        type="primary",
+        key=f"btn_dl_pdf_{pdf_id}",
+        disabled=(not filename),
+        help="Converts current notes to PDF and downloads as case_id.pdf.",
+    ) and filename:
         editor_content = (st.session_state.get(text_key) or "").strip()
         try:
             pdf_bytes = notes_markdown_to_pdf_bytes(editor_content)
-            st.download_button(
-                "Download as PDF",
-                data=pdf_bytes,
-                file_name=filename,
-                mime="application/pdf",
-                type="primary",
-                key=f"dl_pdf_{pdf_id}",
-                help="Converts current notes to PDF and downloads as case_id.pdf.",
-            )
+            st.session_state[KEY_PENDING_PDF] = {"bytes": pdf_bytes, "filename": filename}
+            st.rerun()
         except Exception as e:
             st.error(f"Download failed: {e}")
-    else:
+
+    if not filename:
         st.caption("Set **Case ID** above to download. Output file will be **case_id.pdf**.")
+
+    # Show download button only after user clicked "Download as PDF" (so conversion runs once per click).
+    pending = st.session_state.pop(KEY_PENDING_PDF, None)
+    if pending:
+        st.download_button(
+            label=f"Download {pending['filename']}",
+            data=pending["bytes"],
+            file_name=pending["filename"],
+            mime="application/pdf",
+            type="primary",
+            key=f"dl_pdf_{pdf_id}",
+        )
