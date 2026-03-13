@@ -4,7 +4,7 @@ PDF Host & Preview: top bar, then full-width resizable left | right columns.
 import streamlit as st
 from streamlit_adjustable_columns import adjustable_columns
 
-from config import SIDEBAR_MAX_WIDTH
+from config import HEALTH_CHECK_INTERVAL_SEC, SIDEBAR_MAX_WIDTH
 from datastore import KEY_ACTIVE_MAIN_TAB, KEY_GO_TO_NOTES_TAB, KEY_SCROLL_TO_PAGE
 from state import ensure_session_state, get_current_upload, clear_scroll_target
 from components import render_top_bar, render_left_column, render_preview_tab, render_converted_tab, render_template_tab
@@ -31,8 +31,12 @@ ensure_session_state()
 if st.session_state.pop(KEY_GO_TO_NOTES_TAB, None):
     st.session_state[KEY_ACTIVE_MAIN_TAB] = 2
 
-# Top bar only (session + backend + Refresh)
-render_top_bar()
+# Top bar (session + backend health + Refresh). Fragment reruns every HEALTH_CHECK_INTERVAL_SEC so health check runs on that interval.
+@st.fragment(run_every=HEALTH_CHECK_INTERVAL_SEC)
+def _top_bar_with_health():
+    render_top_bar()
+
+_top_bar_with_health()
 
 # Whole area below top bar is resizable: drag the handle between left and right
 st.markdown("""

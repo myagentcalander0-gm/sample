@@ -12,6 +12,8 @@ PDF_QUERY_API_URL: str = os.getenv("PDF_QUERY_API_URL", "http://localhost:8000")
 # Streamlit app base URL (for external_loc when backend needs the host). Set STREAMLIT_APP_URL if auto-detect fails.
 STREAMLIT_APP_URL: str = os.getenv("STREAMLIT_APP_URL", "")
 HEALTH_PATH: str = os.getenv("HEALTH_PATH", "/health")
+# How often to re-run the health check (seconds). Top bar fragment uses this.
+HEALTH_CHECK_INTERVAL_SEC: float = float(os.getenv("HEALTH_CHECK_INTERVAL_SEC", "15"))
 CHAT_PATH: str = os.getenv("CHAT_PATH", "/continue_chat")
 # Optional API key sent as x-api-key header on backend requests.
 X_API_KEY: str = os.getenv("X_API_KEY", "asd")

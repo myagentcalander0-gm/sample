@@ -1,14 +1,13 @@
 """Template tab: per-PDF notes editor and Download as PDF (in-app conversion, no external route)."""
 from __future__ import annotations
 
-import base64
 from typing import Any
 
 import streamlit as st
 
 from services.notes_to_pdf import notes_markdown_to_pdf_bytes
 
-KEY_PENDING_PDF = "pending_pdf_download"  # {b64: str, filename: str} after POST; trigger JS download then clear
+KEY_PENDING_PDF = "pending_pdf_download"  # {bytes: bytes, filename: str} after generate; show download button then clear
 
 
 def _template_text_key(pdf_id: str) -> str:
@@ -24,6 +23,8 @@ def render_template_tab(current: dict[str, Any] | None) -> None:
     pdf_id = current.get("id") or ""
     text_key = _template_text_key(pdf_id)
     st.caption(f"Notes for **{current.get('name', 'PDF')}**. Use **Insert** on chat responses to add rows here. Markdown is supported.")
+    # Case ID: per-PDF, used as download filename (case_id.pdf); placed right before Editor/Edit Preview tabs
+    st.text_input("Case ID", key=f"case_id_{pdf_id}", placeholder="Case ID (used for download filename)", label_visibility="visible")
     text = st.session_state.get(text_key, "")
 
     tab_editor, tab_preview = st.tabs(["Editor", "Edit Preview"])
@@ -57,39 +58,30 @@ def render_template_tab(current: dict[str, Any] | None) -> None:
         type="primary",
         key=f"btn_dl_pdf_{pdf_id}",
         disabled=(not filename),
-        help="Converts all edited notes to PDF. Set Case ID in the sidebar; output will be case_id.pdf.",
+        help="Converts all edited notes to PDF. Set Case ID above; output will be case_id.pdf.",
     ):
-        # Convert notes to PDF in-app (no HTTP route). Streamlit has no /notes_to_pdf endpoint; we do markdown→PDF here and pass bytes to the browser for auto-download.
+        # Convert notes to PDF in-app, then offer download via Streamlit's download button (reliable in browser).
         editor_content = (st.session_state.get(text_key) or "").strip()
         try:
             pdf_bytes = notes_markdown_to_pdf_bytes(editor_content)
-            b64 = base64.b64encode(pdf_bytes).decode("ascii")
-            st.session_state[KEY_PENDING_PDF] = {"b64": b64, "filename": filename}
+            st.session_state[KEY_PENDING_PDF] = {"bytes": pdf_bytes, "filename": filename}
             st.rerun()
         except Exception as e:
             st.error(f"Download failed: {e}")
 
     if not filename:
-        st.caption("Set **Case ID** in the sidebar to download. Output file will be **case_id.pdf**.")
+        st.caption("Set **Case ID** above to download. Output file will be **case_id.pdf**.")
 
-    # After rerun with pending PDF: trigger browser download via JS, then clear
+    # After rerun: show download button so the browser actually gets the file (script injection is often blocked by Streamlit).
     pending = st.session_state.pop(KEY_PENDING_PDF, None)
     if pending:
-        b64 = pending["b64"].replace("'", "\\'").replace('"', '\\"')
-        fn = pending["filename"].replace("'", "\\'").replace('"', '\\"')
-        st.markdown(
-            f'<script>(function(){{'
-            f'var b64="{b64}";'
-            f'var fn="{fn}";'
-            f'var bin=atob(b64);'
-            f'var arr=new Uint8Array(bin.length);'
-            f'for(var i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);'
-            f'var blob=new Blob([arr],{{type:"application/pdf"}});'
-            f'var a=document.createElement("a");'
-            f'a.href=URL.createObjectURL(blob);'
-            f'a.download=fn;'
-            f'a.click();'
-            f'URL.revokeObjectURL(a.href);'
-            f'}})();</script>',
-            unsafe_allow_html=True,
+        pdf_bytes = pending["bytes"]
+        fn = pending["filename"]
+        st.download_button(
+            label=f"Download {fn}",
+            data=pdf_bytes,
+            file_name=fn,
+            mime="application/pdf",
+            type="primary",
+            key=f"dl_pdf_{pdf_id}",
         )
