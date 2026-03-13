@@ -5,7 +5,7 @@
       "name": "Streamlit: Run app.py (debug)",
       "type": "debugpy",
       "request": "launch",
-      "python": "${workspaceFolder}/.venv/bin/python",
+      "python": "/Users/freedomkwokmacbookpro/Github/sample/.venv/bin/python",
       "module": "streamlit",
       "args": ["run", "app.py", "--server.port", "8501"],
       "cwd": "${workspaceFolder}",

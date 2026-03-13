@@ -2,38 +2,9 @@
 from __future__ import annotations
 
 import re
-import unicodedata
 
 
-# Map "weird" (non-ASCII) characters to safe ASCII for PDF. Editor keeps originals; only PDF export uses these.
-# Add more entries as needed; these are common symbols that break fpdf2 or look wrong in PDF.
-WEIRD_TO_SAFE: dict[str, str] = {
-    "\u2013": "-",   # en dash
-    "\u2014": "-",   # em dash
-    "\u2018": "'",   # left single quote
-    "\u2019": "'",   # right single quote
-    "\u201c": '"',   # left double quote
-    "\u201d": '"',   # right double quote
-    "\u2022": "*",   # bullet
-    "\u2026": "...", # ellipsis
-    "\u2192": "->",  # right arrow
-    "\u2190": "<-",  # left arrow
-    "\u2194": "<->", # left-right arrow
-    "\u00a0": " ",   # nbsp
-    "\u00ae": "(R)", # registered
-    "\u2122": "(TM)",# trademark
-    "\u00a9": "(c)", # copyright
-}
-
-
-def _weird_to_safe(text: str) -> str:
-    """Replace known weird characters with safe ASCII. Original notes in app are unchanged; use this only for the PDF copy."""
-    for char, safe in WEIRD_TO_SAFE.items():
-        text = text.replace(char, safe)
-    return text
-
-
-# Printable ASCII only (32-126); fpdf2 can choke on other codepoints
+# Printable ASCII only (32-126); fpdf2 can choke on other codepoints → "Not enough horizontal space"
 def _to_printable_ascii(s: str, keep_newline: bool = True) -> str:
     """Force string to printable ASCII so fpdf2 never sees a bad character. Tab → space."""
     if not s:
@@ -62,17 +33,47 @@ def _markdown_to_plain(text: str) -> str:
     return s
 
 
+def _split_to_fit_width(pdf: object, line: str, max_width: float) -> list[str]:
+    """Split a sanitized line so each chunk fits max_width in current PDF font."""
+    safe = _to_printable_ascii(line, keep_newline=False)
+    if not safe.strip():
+        return [" "]
+
+    chunks: list[str] = []
+    current = ""
+    for ch in safe:
+        candidate = current + ch
+        if candidate and pdf.get_string_width(candidate) <= (max_width - 0.5):
+            current = candidate
+            continue
+
+        if current:
+            chunks.append(current)
+
+        # If a single character still does not fit (extremely unlikely), degrade to '?'
+        if pdf.get_string_width(ch) <= (max_width - 0.5):
+            current = ch
+        else:
+            current = "?"
+
+    if current:
+        chunks.append(current)
+    return chunks or [" "]
+
+
 def _build_pdf(plain: str) -> bytes:
-    """Build PDF from plain text. Each line forced to printable ASCII before multi_cell."""
+    """Build PDF from plain text with width-safe splitting to avoid layout errors."""
     from fpdf import FPDF
 
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("Helvetica", size=11)
+    usable_width = max(20.0, pdf.w - pdf.l_margin - pdf.r_margin)
     for line in plain.split("\n"):
-        safe = _to_printable_ascii(line, keep_newline=False).strip() or " "
-        pdf.multi_cell(0, 6, safe)
+        for part in _split_to_fit_width(pdf, line, usable_width):
+            safe = part.strip() or " "
+            pdf.multi_cell(usable_width, 6, safe)
     return bytes(pdf.output())
 
 
@@ -82,8 +83,7 @@ def notes_markdown_to_pdf_bytes(text: str) -> bytes:
     if not text:
         text = " "
     plain = _markdown_to_plain(text)
-    plain = _weird_to_safe(plain)      # replace known symbols with safe ASCII (→ ->, • *, etc.)
-    plain = _to_printable_ascii(plain) # any remaining non-ASCII → ? or space
+    plain = _to_printable_ascii(plain)  # tabs → space, non-printable → ? or space
 
     try:
         return _build_pdf(plain)
