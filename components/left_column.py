@@ -94,7 +94,14 @@ def _load_default_prompt_from_file() -> str:
 def _maybe_run_pending_process() -> None:
     """If Process-file inserted a Loading placeholder, run backend request(s) and replace it."""
     current = get_current_upload()
-    pending_pdf = st.session_state.get(KEY_PENDING_PROCESS)
+    pending = st.session_state.get(KEY_PENDING_PROCESS)
+    if isinstance(pending, dict):
+        pending_pdf = pending.get("pdf_id")
+        pending_text_output_only = bool(pending.get("text_output_only", True))
+    else:
+        # Backward compatibility with older state shape (just pdf_id)
+        pending_pdf = pending
+        pending_text_output_only = bool(st.session_state.get(KEY_TEXT_OUTPUT_ONLY, True))
     if not (current and pending_pdf == current.get("id")):
         return
 
@@ -103,7 +110,7 @@ def _maybe_run_pending_process() -> None:
         return
 
     prompt_prefix = (st.session_state.get(KEY_PROMPT_EDITOR) or "").strip()
-    text_output_only = st.session_state.get(KEY_TEXT_OUTPUT_ONLY, True)
+    text_output_only = pending_text_output_only
     from_page = max(1, st.session_state.get(KEY_FROM_PAGE, 1))
     to_page = st.session_state.get(KEY_TO_PAGE, 20)
     base_url = get_backend_base_url()
@@ -256,6 +263,13 @@ def render_left_column() -> None:
                 with col_to:
                     st.number_input("To", min_value=0, value=st.session_state.get(KEY_TO_PAGE, 20), key=KEY_TO_PAGE)
                 col_btn, col_toggle = st.columns([1, 1])
+                # Read toggle first so click uses this run's value deterministically.
+                with col_toggle:
+                    text_output_only_now = st.checkbox(
+                        "Text Output Only",
+                        value=st.session_state.get(KEY_TEXT_OUTPUT_ONLY, True),
+                        key=KEY_TEXT_OUTPUT_ONLY,
+                    )
                 with col_btn:
                     if st.button("Process file", key="btn_process_file"):
                         # 1. Load the PDF and add user + assistant "Loading..." then switch to Chat; API runs on next run
@@ -267,15 +281,13 @@ def render_left_column() -> None:
                             initial_messages=[{"role": "user", "content": prompt_prefix}],
                         )
                         conv["messages"].append({"role": "assistant", "content": LOADING_PLACEHOLDER})
-                        st.session_state[KEY_PENDING_PROCESS] = pdf_id
+                        # Snapshot options used for pending process so state changes on next rerun won't alter behavior.
+                        st.session_state[KEY_PENDING_PROCESS] = {
+                            "pdf_id": pdf_id,
+                            "text_output_only": bool(text_output_only_now),
+                        }
                         st.session_state[KEY_UPLOADER_RESET] += 1  # clear uploader
                         st.session_state[KEY_GO_TO_CHAT] = True  # switch to Chat on next run
                         st.rerun()
-                with col_toggle:
-                    st.checkbox(
-                        "Text Output Only",
-                        value=st.session_state.get(KEY_TEXT_OUTPUT_ONLY, True),
-                        key=KEY_TEXT_OUTPUT_ONLY,
-                    )
         else:
             render_chat_tab(get_current_upload())
